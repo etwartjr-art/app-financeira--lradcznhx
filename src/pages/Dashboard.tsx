@@ -13,6 +13,7 @@ import { useFinance } from '@/stores/FinanceContext'
 import { Button } from '@/components/ui/button'
 import { format, addMonths, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { cn } from '@/lib/utils'
 
 const chartData = [
   { name: 'Jan', total: 1200 },

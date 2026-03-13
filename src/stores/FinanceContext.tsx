@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useMemo } from 'react'
+import React, { createContext, useContext, useState, useMemo, useEffect } from 'react'
 
 export type Transaction = {
   id: string
@@ -57,7 +57,10 @@ const FinanceContext = createContext<FinanceContextType | null>(null)
 const dStr = (daysBack: number) => new Date(Date.now() - daysBack * 86400000).toISOString()
 
 export const FinanceProvider = ({ children }: { children: React.ReactNode }) => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return localStorage.getItem('@finance-app:isLoggedIn') === 'true'
+  })
+
   const [balance, setBalance] = useState(12450.5)
   const [currentMonth, setCurrentMonth] = useState(new Date())
 
@@ -134,8 +137,15 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     },
   ])
 
-  const login = () => setIsLoggedIn(true)
-  const logout = () => setIsLoggedIn(false)
+  const login = () => {
+    localStorage.setItem('@finance-app:isLoggedIn', 'true')
+    setIsLoggedIn(true)
+  }
+
+  const logout = () => {
+    localStorage.removeItem('@finance-app:isLoggedIn')
+    setIsLoggedIn(false)
+  }
 
   const addCategory = (cat: Omit<Category, 'id'>) =>
     setCategories((p) => [...p, { ...cat, id: Math.random().toString() }])

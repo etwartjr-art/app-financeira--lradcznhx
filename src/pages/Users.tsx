@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -26,55 +26,65 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Edit, UserPlus, ShieldAlert } from 'lucide-react'
+import { Edit, UserPlus, ShieldAlert, CheckCircle2, AlertCircle } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
-type User = { id: string; name: string; email: string; role: 'Admin' | 'User'; active: boolean }
+type User = {
+  id: string
+  name: string
+  email: string
+  role: 'Admin' | 'User'
+  situation: 'Ativo' | 'Devedor'
+}
 
 export default function Users() {
   const [users, setUsers] = useState<User[]>([
-    { id: '1', name: 'João Silva', email: 'joao@financasetw.com.br', role: 'Admin', active: true },
+    {
+      id: '1',
+      name: 'João Silva',
+      email: 'joao@financasetw.com.br',
+      role: 'Admin',
+      situation: 'Ativo',
+    },
     {
       id: '2',
       name: 'Maria Souza',
       email: 'maria@financasetw.com.br',
       role: 'User',
-      active: false,
+      situation: 'Devedor',
     },
     {
       id: '3',
       name: 'Carlos Santos',
       email: 'carlos@financasetw.com.br',
       role: 'User',
-      active: true,
+      situation: 'Ativo',
     },
   ])
 
   const [modal, setModal] = useState<{ open: boolean; mode: 'add' | 'edit'; user: Partial<User> }>({
     open: false,
     mode: 'add',
-    user: { role: 'User', active: true },
+    user: { role: 'User', situation: 'Ativo' },
   })
 
-  const toggleUserStatus = (id: string, active: boolean) => {
-    setUsers(users.map((u) => (u.id === id ? { ...u, active } : u)))
-    toast({ title: `Status alterado para ${active ? 'Ativo' : 'Inativo'}` })
-  }
-
   const handleSaveUser = () => {
-    if (!modal.user.name || !modal.user.email) {
+    if (!modal.user.name || !modal.user.email || !modal.user.situation) {
       return toast({ title: 'Preencha os campos obrigatórios!', variant: 'destructive' })
     }
 
     if (modal.mode === 'add') {
-      const newUser = { ...modal.user, id: Math.random().toString(), active: true } as User
+      const newUser = {
+        ...modal.user,
+        id: Math.random().toString(),
+      } as User
       setUsers([...users, newUser])
       toast({ title: 'Usuário adicionado com sucesso!' })
     } else {
       setUsers(users.map((u) => (u.id === modal.user.id ? (modal.user as User) : u)))
       toast({ title: 'Usuário atualizado com sucesso!' })
     }
-    setModal({ open: false, mode: 'add', user: { role: 'User', active: true } })
+    setModal({ open: false, mode: 'add', user: { role: 'User', situation: 'Ativo' } })
   }
 
   return (
@@ -82,12 +92,12 @@ export default function Users() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white">Usuários do Sistema</h1>
-          <p className="text-slate-400">Gerencie acessos e permissões da equipe.</p>
+          <p className="text-slate-400">Gerencie acessos e o controle financeiro dos mentorados.</p>
         </div>
         <Button
           className="bg-[#0f766e] hover:bg-[#0f766e]/90 text-white rounded-lg"
           onClick={() =>
-            setModal({ open: true, mode: 'add', user: { role: 'User', active: true } })
+            setModal({ open: true, mode: 'add', user: { role: 'User', situation: 'Ativo' } })
           }
         >
           <UserPlus className="mr-2 h-4 w-4" /> Adicionar Usuário
@@ -108,7 +118,7 @@ export default function Users() {
                 PERFIL
               </TableHead>
               <TableHead className="text-slate-400 font-semibold text-xs tracking-wider">
-                STATUS
+                SITUAÇÃO
               </TableHead>
               <TableHead className="text-right text-slate-400 font-semibold text-xs tracking-wider">
                 AÇÕES
@@ -136,11 +146,22 @@ export default function Users() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Switch
-                    checked={user.active}
-                    onCheckedChange={(val) => toggleUserStatus(user.id, val)}
-                    className="data-[state=checked]:bg-emerald-500"
-                  />
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'px-2 py-0.5 text-xs font-medium border-transparent flex items-center gap-1.5 w-fit',
+                      user.situation === 'Ativo'
+                        ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
+                        : 'bg-red-500/10 text-red-500 hover:bg-red-500/20',
+                    )}
+                  >
+                    {user.situation === 'Ativo' ? (
+                      <CheckCircle2 className="w-3 h-3" />
+                    ) : (
+                      <AlertCircle className="w-3 h-3" />
+                    )}
+                    {user.situation}
+                  </Badge>
                 </TableCell>
                 <TableCell className="text-right">
                   <Button
@@ -187,24 +208,43 @@ export default function Users() {
                 }
               />
             </div>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4" /> Nível de Permissão
-              </Label>
-              <Select
-                value={modal.user.role}
-                onValueChange={(v: 'Admin' | 'User') =>
-                  setModal({ ...modal, user: { ...modal.user, role: v } })
-                }
-              >
-                <SelectTrigger className="bg-[#0b0e14] border-slate-700">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-[#161925] border-slate-700 text-slate-100">
-                  <SelectItem value="User">Usuário Padrão</SelectItem>
-                  <SelectItem value="Admin">Administrador</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-slate-400" /> Permissão
+                </Label>
+                <Select
+                  value={modal.user.role}
+                  onValueChange={(v: 'Admin' | 'User') =>
+                    setModal({ ...modal, user: { ...modal.user, role: v } })
+                  }
+                >
+                  <SelectTrigger className="bg-[#0b0e14] border-slate-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#161925] border-slate-700 text-slate-100">
+                    <SelectItem value="User">Usuário</SelectItem>
+                    <SelectItem value="Admin">Administrador</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Situação Financeira</Label>
+                <Select
+                  value={modal.user.situation}
+                  onValueChange={(v: 'Ativo' | 'Devedor') =>
+                    setModal({ ...modal, user: { ...modal.user, situation: v } })
+                  }
+                >
+                  <SelectTrigger className="bg-[#0b0e14] border-slate-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#161925] border-slate-700 text-slate-100">
+                    <SelectItem value="Ativo">Ativo</SelectItem>
+                    <SelectItem value="Devedor">Devedor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           <DialogFooter>

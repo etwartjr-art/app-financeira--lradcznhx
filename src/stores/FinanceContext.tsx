@@ -38,6 +38,7 @@ export type User = {
   password?: string
   role: 'Admin' | 'User'
   situation: 'Ativo' | 'Devedor'
+  createdAt: string
 }
 
 type FinanceContextType = {
@@ -85,6 +86,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       password: 'Samuel@1234@',
       role: 'Admin',
       situation: 'Ativo',
+      createdAt: '2023-01-15T10:00:00Z',
     },
     {
       id: '2',
@@ -93,6 +95,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       password: 'password123',
       role: 'User',
       situation: 'Devedor',
+      createdAt: '2023-11-20T10:00:00Z',
     },
     {
       id: '3',
@@ -101,6 +104,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       password: 'password123',
       role: 'User',
       situation: 'Ativo',
+      createdAt: '2024-01-05T10:00:00Z',
     },
   ])
 
@@ -157,31 +161,12 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       origin: 'itau',
       category: 'Transporte',
     },
-    {
-      id: 't4',
-      amount: 150,
-      description: 'Conta de Luz',
-      type: 'expense',
-      date: dStr(3),
-      origin: 'Conta Principal',
-      category: 'Moradia',
-    },
-    {
-      id: 't5',
-      amount: 65,
-      description: 'iFood',
-      type: 'expense',
-      date: dStr(0),
-      origin: 'itau',
-      category: 'Alimentação',
-    },
   ])
 
   const login = () => {
     localStorage.setItem('@finance-app:isLoggedIn', 'true')
     setIsLoggedIn(true)
   }
-
   const logout = () => {
     localStorage.removeItem('@finance-app:isLoggedIn')
     setIsLoggedIn(false)
@@ -207,22 +192,18 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
 
   const addTransaction = (tx: Omit<Transaction, 'id'>) => {
     setTransactions((p) => [{ ...tx, id: Math.random().toString() }, ...p])
-    if (!cards.some((c) => c.name === tx.origin)) {
+    if (!cards.some((c) => c.name === tx.origin))
       setBalance((p) => (tx.type === 'income' ? p + tx.amount : p - tx.amount))
-    }
   }
-
   const updateTransaction = (id: string, data: Partial<Transaction>) => {
     setTransactions((p) => p.map((t) => (t.id === id ? ({ ...t, ...data } as Transaction) : t)))
   }
-
   const deleteTransaction = (id: string) => {
     const tx = transactions.find((t) => t.id === id)
     if (!tx) return
     setTransactions((p) => p.filter((t) => t.id !== id))
-    if (!cards.some((c) => c.name === tx.origin)) {
+    if (!cards.some((c) => c.name === tx.origin))
       setBalance((p) => (tx.type === 'income' ? p - tx.amount : p + tx.amount))
-    }
   }
 
   const value = useMemo(

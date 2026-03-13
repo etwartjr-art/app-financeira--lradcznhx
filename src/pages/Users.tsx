@@ -1,23 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -26,9 +10,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Edit, UserPlus, ShieldAlert, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react'
+import { Edit, UserPlus, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { useFinance, type User } from '@/stores/FinanceContext'
+import { format, differenceInMonths, differenceInYears } from 'date-fns'
+import { UserDialog } from '@/components/UserDialog'
 
 export default function Users() {
   const { users, addUser, updateUser, deleteUser } = useFinance()
@@ -39,30 +25,36 @@ export default function Users() {
     user: { role: 'User', situation: 'Ativo' },
   })
 
+  const getUsageTime = (dateStr?: string) => {
+    if (!dateStr) return 'Desconhecido'
+    const start = new Date(dateStr)
+    const now = new Date()
+    const years = differenceInYears(now, start)
+    const months = differenceInMonths(now, start) % 12
+    if (years === 0 && months === 0) return 'Menos de 1 mês'
+    const parts = []
+    if (years > 0) parts.push(`${years} ano${years > 1 ? 's' : ''}`)
+    if (months > 0) parts.push(`${months} mês${months > 1 ? 'es' : ''}`)
+    return parts.join(' e ')
+  }
+
   const handleSaveUser = () => {
     if (!modal.user.name || !modal.user.email || !modal.user.situation) {
       return toast({ title: 'Preencha os campos obrigatórios!', variant: 'destructive' })
     }
-
     if (modal.mode === 'add') {
-      if (!modal.user.password) {
+      if (!modal.user.password)
         return toast({
           title: 'A senha é obrigatória para novos usuários!',
           variant: 'destructive',
         })
-      }
-      addUser(modal.user as Omit<User, 'id'>)
+      addUser({ ...modal.user, createdAt: new Date().toISOString() } as Omit<User, 'id'>)
       toast({ title: 'Usuário adicionado com sucesso!' })
     } else {
       updateUser(modal.user.id!, modal.user)
       toast({ title: 'Usuário atualizado com sucesso!' })
     }
     setModal({ open: false, mode: 'add', user: { role: 'User', situation: 'Ativo' } })
-  }
-
-  const handleDelete = (id: string) => {
-    deleteUser(id)
-    toast({ title: 'Usuário removido do sistema.' })
   }
 
   return (
@@ -82,8 +74,8 @@ export default function Users() {
         </Button>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-[#161925] overflow-hidden shadow-sm">
-        <Table>
+      <div className="rounded-xl border border-slate-800 bg-[#161925] overflow-hidden shadow-sm overflow-x-auto">
+        <Table className="min-w-[800px]">
           <TableHeader className="bg-[#0b0e14]">
             <TableRow className="border-slate-800">
               <TableHead className="text-slate-400 font-semibold text-xs tracking-wider">
@@ -91,6 +83,12 @@ export default function Users() {
               </TableHead>
               <TableHead className="text-slate-400 font-semibold text-xs tracking-wider">
                 E-MAIL
+              </TableHead>
+              <TableHead className="text-slate-400 font-semibold text-xs tracking-wider">
+                DATA DE CADASTRO
+              </TableHead>
+              <TableHead className="text-slate-400 font-semibold text-xs tracking-wider">
+                TEMPO DE USO
               </TableHead>
               <TableHead className="text-slate-400 font-semibold text-xs tracking-wider">
                 PERFIL
@@ -115,6 +113,12 @@ export default function Users() {
                   </div>
                 </TableCell>
                 <TableCell className="text-slate-400 text-sm">{user.email}</TableCell>
+                <TableCell className="text-slate-400 text-sm">
+                  {user.createdAt ? format(new Date(user.createdAt), 'dd/MM/yyyy') : '-'}
+                </TableCell>
+                <TableCell className="text-slate-400 text-sm font-medium">
+                  {getUsageTime(user.createdAt)}
+                </TableCell>
                 <TableCell>
                   <Badge
                     variant="outline"
@@ -129,8 +133,8 @@ export default function Users() {
                     className={cn(
                       'px-2 py-0.5 text-xs font-medium border-transparent flex items-center gap-1.5 w-fit',
                       user.situation === 'Ativo'
-                        ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
-                        : 'bg-red-500/10 text-red-500 hover:bg-red-500/20',
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : 'bg-red-500/10 text-red-500',
                     )}
                   >
                     {user.situation === 'Ativo' ? (
@@ -155,7 +159,10 @@ export default function Users() {
                       variant="ghost"
                       size="icon"
                       className="text-slate-400 hover:text-red-400"
-                      onClick={() => handleDelete(user.id)}
+                      onClick={() => {
+                        deleteUser(user.id)
+                        toast({ title: 'Usuário removido.' })
+                      }}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -167,102 +174,14 @@ export default function Users() {
         </Table>
       </div>
 
-      <Dialog open={modal.open} onOpenChange={(o) => !o && setModal({ ...modal, open: false })}>
-        <DialogContent className="bg-[#161925] border-slate-800 text-slate-100 sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-white">
-              {modal.mode === 'add' ? 'Adicionar Novo Usuário' : 'Editar Perfil do Usuário'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-5 py-4">
-            <div className="space-y-2">
-              <Label>Nome Completo</Label>
-              <Input
-                className="bg-[#0b0e14] border-slate-700 focus-visible:ring-[#0f766e]"
-                value={modal.user.name || ''}
-                onChange={(e) =>
-                  setModal({ ...modal, user: { ...modal.user, name: e.target.value } })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>E-mail</Label>
-              <Input
-                type="email"
-                className="bg-[#0b0e14] border-slate-700 focus-visible:ring-[#0f766e]"
-                value={modal.user.email || ''}
-                onChange={(e) =>
-                  setModal({ ...modal, user: { ...modal.user, email: e.target.value } })
-                }
-              />
-            </div>
-            {modal.mode === 'add' && (
-              <div className="space-y-2">
-                <Label>Senha Temporária</Label>
-                <Input
-                  type="text"
-                  className="bg-[#0b0e14] border-slate-700 focus-visible:ring-[#0f766e] font-mono"
-                  value={modal.user.password || ''}
-                  onChange={(e) =>
-                    setModal({ ...modal, user: { ...modal.user, password: e.target.value } })
-                  }
-                  placeholder="Defina uma senha de acesso"
-                />
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <ShieldAlert className="w-4 h-4 text-slate-400" /> Permissão
-                </Label>
-                <Select
-                  value={modal.user.role}
-                  onValueChange={(v: 'Admin' | 'User') =>
-                    setModal({ ...modal, user: { ...modal.user, role: v } })
-                  }
-                >
-                  <SelectTrigger className="bg-[#0b0e14] border-slate-700">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#161925] border-slate-700 text-slate-100">
-                    <SelectItem value="User">Usuário</SelectItem>
-                    <SelectItem value="Admin">Administrador</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Situação Financeira</Label>
-                <Select
-                  value={modal.user.situation}
-                  onValueChange={(v: 'Ativo' | 'Devedor') =>
-                    setModal({ ...modal, user: { ...modal.user, situation: v } })
-                  }
-                >
-                  <SelectTrigger className="bg-[#0b0e14] border-slate-700">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#161925] border-slate-700 text-slate-100">
-                    <SelectItem value="Ativo">Ativo</SelectItem>
-                    <SelectItem value="Devedor">Devedor</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              className="bg-transparent border-slate-700 text-white"
-              onClick={() => setModal({ ...modal, open: false })}
-            >
-              Cancelar
-            </Button>
-            <Button className="bg-[#0f766e] text-white" onClick={handleSaveUser}>
-              Salvar Usuário
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <UserDialog
+        open={modal.open}
+        mode={modal.mode}
+        user={modal.user}
+        onClose={() => setModal({ ...modal, open: false })}
+        onChange={(u) => setModal({ ...modal, user: u })}
+        onSave={handleSaveUser}
+      />
     </div>
   )
 }

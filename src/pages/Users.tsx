@@ -50,18 +50,31 @@ export default function Users() {
     },
   ])
 
-  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [modal, setModal] = useState<{ open: boolean; mode: 'add' | 'edit'; user: Partial<User> }>({
+    open: false,
+    mode: 'add',
+    user: { role: 'User', active: true },
+  })
 
   const toggleUserStatus = (id: string, active: boolean) => {
     setUsers(users.map((u) => (u.id === id ? { ...u, active } : u)))
     toast({ title: `Status alterado para ${active ? 'Ativo' : 'Inativo'}` })
   }
 
-  const handleUpdateUser = () => {
-    if (!editingUser) return
-    setUsers(users.map((u) => (u.id === editingUser.id ? editingUser : u)))
-    setEditingUser(null)
-    toast({ title: 'Usuário atualizado com sucesso!' })
+  const handleSaveUser = () => {
+    if (!modal.user.name || !modal.user.email) {
+      return toast({ title: 'Preencha os campos obrigatórios!', variant: 'destructive' })
+    }
+
+    if (modal.mode === 'add') {
+      const newUser = { ...modal.user, id: Math.random().toString(), active: true } as User
+      setUsers([...users, newUser])
+      toast({ title: 'Usuário adicionado com sucesso!' })
+    } else {
+      setUsers(users.map((u) => (u.id === modal.user.id ? (modal.user as User) : u)))
+      toast({ title: 'Usuário atualizado com sucesso!' })
+    }
+    setModal({ open: false, mode: 'add', user: { role: 'User', active: true } })
   }
 
   return (
@@ -71,7 +84,12 @@ export default function Users() {
           <h1 className="text-2xl font-bold tracking-tight text-white">Usuários do Sistema</h1>
           <p className="text-slate-400">Gerencie acessos e permissões da equipe.</p>
         </div>
-        <Button className="bg-[#0f766e] hover:bg-[#0f766e]/90 text-white rounded-lg">
+        <Button
+          className="bg-[#0f766e] hover:bg-[#0f766e]/90 text-white rounded-lg"
+          onClick={() =>
+            setModal({ open: true, mode: 'add', user: { role: 'User', active: true } })
+          }
+        >
           <UserPlus className="mr-2 h-4 w-4" /> Adicionar Usuário
         </Button>
       </div>
@@ -129,7 +147,7 @@ export default function Users() {
                     variant="ghost"
                     size="icon"
                     className="text-slate-400 hover:text-white"
-                    onClick={() => setEditingUser(user)}
+                    onClick={() => setModal({ open: true, mode: 'edit', user })}
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
@@ -140,61 +158,65 @@ export default function Users() {
         </Table>
       </div>
 
-      <Dialog open={!!editingUser} onOpenChange={(o) => !o && setEditingUser(null)}>
+      <Dialog open={modal.open} onOpenChange={(o) => !o && setModal({ ...modal, open: false })}>
         <DialogContent className="bg-[#161925] border-slate-800 text-slate-100 sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-white">Editar Perfil do Usuário</DialogTitle>
+            <DialogTitle className="text-white">
+              {modal.mode === 'add' ? 'Adicionar Novo Usuário' : 'Editar Perfil do Usuário'}
+            </DialogTitle>
           </DialogHeader>
-          {editingUser && (
-            <div className="space-y-5 py-4">
-              <div className="space-y-2">
-                <Label>Nome Completo</Label>
-                <Input
-                  className="bg-[#0b0e14] border-slate-700"
-                  value={editingUser.name}
-                  onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>E-mail</Label>
-                <Input
-                  type="email"
-                  className="bg-[#0b0e14] border-slate-700"
-                  value={editingUser.email}
-                  onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <ShieldAlert className="w-4 h-4" /> Nível de Permissão
-                </Label>
-                <Select
-                  value={editingUser.role}
-                  onValueChange={(v: 'Admin' | 'User') =>
-                    setEditingUser({ ...editingUser, role: v })
-                  }
-                >
-                  <SelectTrigger className="bg-[#0b0e14] border-slate-700">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#161925] border-slate-700 text-slate-100">
-                    <SelectItem value="User">Usuário Padrão</SelectItem>
-                    <SelectItem value="Admin">Administrador</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          <div className="space-y-5 py-4">
+            <div className="space-y-2">
+              <Label>Nome Completo</Label>
+              <Input
+                className="bg-[#0b0e14] border-slate-700 focus-visible:ring-[#0f766e]"
+                value={modal.user.name || ''}
+                onChange={(e) =>
+                  setModal({ ...modal, user: { ...modal.user, name: e.target.value } })
+                }
+              />
             </div>
-          )}
+            <div className="space-y-2">
+              <Label>E-mail</Label>
+              <Input
+                type="email"
+                className="bg-[#0b0e14] border-slate-700 focus-visible:ring-[#0f766e]"
+                value={modal.user.email || ''}
+                onChange={(e) =>
+                  setModal({ ...modal, user: { ...modal.user, email: e.target.value } })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4" /> Nível de Permissão
+              </Label>
+              <Select
+                value={modal.user.role}
+                onValueChange={(v: 'Admin' | 'User') =>
+                  setModal({ ...modal, user: { ...modal.user, role: v } })
+                }
+              >
+                <SelectTrigger className="bg-[#0b0e14] border-slate-700">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#161925] border-slate-700 text-slate-100">
+                  <SelectItem value="User">Usuário Padrão</SelectItem>
+                  <SelectItem value="Admin">Administrador</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <DialogFooter>
             <Button
               variant="outline"
               className="bg-transparent border-slate-700 text-white"
-              onClick={() => setEditingUser(null)}
+              onClick={() => setModal({ ...modal, open: false })}
             >
               Cancelar
             </Button>
-            <Button className="bg-[#0f766e] text-white" onClick={handleUpdateUser}>
-              Salvar Perfil
+            <Button className="bg-[#0f766e] text-white" onClick={handleSaveUser}>
+              Salvar Usuário
             </Button>
           </DialogFooter>
         </DialogContent>

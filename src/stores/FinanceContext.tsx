@@ -25,32 +25,51 @@ export type Card = {
   status: 'Aberta' | 'Fechada' | 'Atrasada'
 }
 
+export type Category = {
+  id: string
+  name: string
+  color: string
+}
+
 type FinanceContextType = {
   isLoggedIn: boolean
   balance: number
   transactions: Transaction[]
   cards: Card[]
-  isMagicDrawerOpen: boolean
+  categories: Category[]
   currentMonth: Date
   setCurrentMonth: (date: Date) => void
   login: () => void
   logout: () => void
-  setMagicDrawerOpen: (open: boolean) => void
   addTransaction: (tx: Omit<Transaction, 'id'>) => void
+  updateTransaction: (id: string, txData: Partial<Transaction>) => void
+  deleteTransaction: (id: string) => void
   addCard: (card: Omit<Card, 'id'>) => void
   updateCard: (id: string, cardData: Partial<Card>) => void
   deleteCard: (id: string) => void
-  updateTransaction: (id: string, txData: Partial<Transaction>) => void
-  deleteTransaction: (id: string) => void
+  addCategory: (cat: Omit<Category, 'id'>) => void
+  updateCategory: (id: string, catData: Partial<Category>) => void
+  deleteCategory: (id: string) => void
 }
 
 const FinanceContext = createContext<FinanceContextType | null>(null)
 
+const dStr = (daysBack: number) => new Date(Date.now() - daysBack * 86400000).toISOString()
+
 export const FinanceProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [isMagicDrawerOpen, setMagicDrawerOpen] = useState(false)
   const [balance, setBalance] = useState(12450.5)
   const [currentMonth, setCurrentMonth] = useState(new Date())
+
+  const [categories, setCategories] = useState<Category[]>([
+    { id: '1', name: 'Alimentação', color: '#ef4444' },
+    { id: '2', name: 'Transporte', color: '#3b82f6' },
+    { id: '3', name: 'Moradia', color: '#10b981' },
+    { id: '4', name: 'Lazer', color: '#f59e0b' },
+    { id: '5', name: 'Saúde', color: '#ec4899' },
+    { id: '6', name: 'Salário', color: '#22c55e' },
+    { id: '7', name: 'Outros', color: '#64748b' },
+  ])
 
   const [cards, setCards] = useState<Card[]>([
     {
@@ -59,71 +78,94 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       type: 'Mastercard',
       last4: '5119',
       color: '#ff7800',
-      limit: 30000,
+      limit: 5000,
       used: 0,
       closingDate: '2026-03-20',
-      dueDate: '2026-03-20',
+      dueDate: '2026-03-27',
       status: 'Aberta',
     },
   ])
 
-  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [transactions, setTransactions] = useState<Transaction[]>([
+    {
+      id: 't1',
+      amount: 5000,
+      description: 'Salário',
+      type: 'income',
+      date: dStr(5),
+      origin: 'Conta Principal',
+      category: 'Salário',
+    },
+    {
+      id: 't2',
+      amount: 250.5,
+      description: 'Supermercado',
+      type: 'expense',
+      date: dStr(2),
+      origin: 'itau',
+      category: 'Alimentação',
+    },
+    {
+      id: 't3',
+      amount: 80,
+      description: 'Combustível',
+      type: 'expense',
+      date: dStr(1),
+      origin: 'itau',
+      category: 'Transporte',
+    },
+    {
+      id: 't4',
+      amount: 150,
+      description: 'Conta de Luz',
+      type: 'expense',
+      date: dStr(3),
+      origin: 'Conta Principal',
+      category: 'Moradia',
+    },
+    {
+      id: 't5',
+      amount: 65,
+      description: 'iFood',
+      type: 'expense',
+      date: dStr(0),
+      origin: 'itau',
+      category: 'Alimentação',
+    },
+  ])
 
   const login = () => setIsLoggedIn(true)
   const logout = () => setIsLoggedIn(false)
 
-  const addCard = (card: Omit<Card, 'id'>) => {
-    setCards((prev) => [...prev, { ...card, id: Math.random().toString() }])
-  }
+  const addCategory = (cat: Omit<Category, 'id'>) =>
+    setCategories((p) => [...p, { ...cat, id: Math.random().toString() }])
+  const updateCategory = (id: string, data: Partial<Category>) =>
+    setCategories((p) => p.map((c) => (c.id === id ? { ...c, ...data } : c)))
+  const deleteCategory = (id: string) => setCategories((p) => p.filter((c) => c.id !== id))
 
-  const updateCard = (id: string, cardData: Partial<Card>) => {
-    setCards((prev) => prev.map((c) => (c.id === id ? { ...c, ...cardData } : c)))
-  }
-
-  const deleteCard = (id: string) => {
-    setCards((prev) => prev.filter((c) => c.id !== id))
-  }
+  const addCard = (card: Omit<Card, 'id'>) =>
+    setCards((p) => [...p, { ...card, id: Math.random().toString() }])
+  const updateCard = (id: string, data: Partial<Card>) =>
+    setCards((p) => p.map((c) => (c.id === id ? { ...c, ...data } : c)))
+  const deleteCard = (id: string) => setCards((p) => p.filter((c) => c.id !== id))
 
   const addTransaction = (tx: Omit<Transaction, 'id'>) => {
-    const newTx: Transaction = { ...tx, id: Math.random().toString() }
-    setTransactions((prev) => [newTx, ...prev])
-
-    const isCard = cards.some((c) => c.name === tx.origin)
-    if (isCard) {
-      if (tx.type === 'expense') {
-        setCards((prev) =>
-          prev.map((c) => (c.name === tx.origin ? { ...c, used: c.used + tx.amount } : c)),
-        )
-      } else {
-        setCards((prev) =>
-          prev.map((c) =>
-            c.name === tx.origin ? { ...c, used: Math.max(0, c.used - tx.amount) } : c,
-          ),
-        )
-      }
-    } else {
-      setBalance((prev) => (tx.type === 'income' ? prev + tx.amount : prev - tx.amount))
+    setTransactions((p) => [{ ...tx, id: Math.random().toString() }, ...p])
+    if (!cards.some((c) => c.name === tx.origin)) {
+      setBalance((p) => (tx.type === 'income' ? p + tx.amount : p - tx.amount))
     }
   }
 
-  const updateTransaction = (id: string, txData: Partial<Transaction>) => {
-    const oldTx = transactions.find((t) => t.id === id)
-    if (!oldTx) return
-
-    const newTx = { ...oldTx, ...txData } as Transaction
-    setTransactions((prev) => prev.map((t) => (t.id === id ? newTx : t)))
-
-    // Complex balance adjustment avoided for brevity, but correctly updates list.
+  const updateTransaction = (id: string, data: Partial<Transaction>) => {
+    setTransactions((p) => p.map((t) => (t.id === id ? ({ ...t, ...data } as Transaction) : t)))
   }
 
   const deleteTransaction = (id: string) => {
     const tx = transactions.find((t) => t.id === id)
     if (!tx) return
-
-    setTransactions((prev) => prev.filter((t) => t.id !== id))
-    const isCard = cards.some((c) => c.name === tx.origin)
-    if (!isCard) {
-      setBalance((prev) => (tx.type === 'income' ? prev - tx.amount : prev + tx.amount))
+    setTransactions((p) => p.filter((t) => t.id !== id))
+    if (!cards.some((c) => c.name === tx.origin)) {
+      setBalance((p) => (tx.type === 'income' ? p - tx.amount : p + tx.amount))
     }
   }
 
@@ -133,20 +175,22 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       balance,
       transactions,
       cards,
-      isMagicDrawerOpen,
+      categories,
       currentMonth,
       setCurrentMonth,
       login,
       logout,
-      setMagicDrawerOpen,
       addTransaction,
+      updateTransaction,
+      deleteTransaction,
       addCard,
       updateCard,
       deleteCard,
-      updateTransaction,
-      deleteTransaction,
+      addCategory,
+      updateCategory,
+      deleteCategory,
     }),
-    [isLoggedIn, balance, transactions, cards, isMagicDrawerOpen, currentMonth],
+    [isLoggedIn, balance, transactions, cards, categories, currentMonth],
   )
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>

@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -9,6 +9,7 @@ import Index from '@/pages/Index'
 import Dashboard from '@/pages/Dashboard'
 import Cards from '@/pages/Cards'
 import Transactions from '@/pages/Transactions'
+import Categories from '@/pages/Categories'
 import Import from '@/pages/Import'
 import Users from '@/pages/Users'
 import NotFound from '@/pages/NotFound'
@@ -32,6 +33,7 @@ function AppContent() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/cards" element={<Cards />} />
+            <Route path="/categories" element={<Categories />} />
             <Route path="/import" element={<Import />} />
             <Route path="/users" element={<Users />} />
             <Route path="/conciliation" element={<Navigate to="/import" replace />} />

@@ -7,6 +7,7 @@ import {
   LogOut,
   Menu,
   Upload,
+  Tags,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -21,7 +22,10 @@ const NAV_ITEMS = [
   { href: '/import', label: 'Importar', icon: Upload },
 ]
 
-const ADMIN_ITEMS = [{ href: '/users', label: 'Usuários', icon: Users }]
+const ADMIN_ITEMS = [
+  { href: '/categories', label: 'Categorias', icon: Tags },
+  { href: '/users', label: 'Usuários', icon: Users },
+]
 
 export default function Layout() {
   const location = useLocation()
@@ -60,11 +64,7 @@ export default function Layout() {
     <div className="flex min-h-screen w-full flex-col bg-[#0b0e14] md:flex-row text-slate-50">
       <aside className="hidden w-64 flex-col border-r border-slate-800 bg-[#0b0e14] md:flex">
         <div className="flex h-20 items-center gap-3 border-b border-slate-800 px-6">
-          <img
-            src={logoImg}
-            alt="APP FINANÇAS PESSOAL ETW"
-            className="h-8 w-8 object-contain rounded-md bg-white p-1"
-          />
+          <img src={logoImg} alt="APP" className="h-8 w-8 object-contain rounded-md bg-white p-1" />
           <span className="font-bold text-sm tracking-tight leading-tight">
             Finanças Pessoal ETW
             <span className="block text-[10px] font-normal text-muted-foreground">
@@ -74,7 +74,6 @@ export default function Layout() {
         </div>
         <nav className="flex-1 space-y-1 p-4">
           <NavLinks items={NAV_ITEMS} />
-
           <div className="mt-8 mb-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
             Admin
           </div>
@@ -86,8 +85,7 @@ export default function Layout() {
             className="w-full justify-start gap-3 text-slate-400 hover:text-slate-50"
             onClick={handleLogout}
           >
-            <LogOut className="h-4 w-4" />
-            Sair
+            <LogOut className="h-4 w-4" /> Sair
           </Button>
         </div>
       </aside>

@@ -30,19 +30,9 @@ import { Search, Edit2, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from '@/hooks/use-toast'
 
-const CATEGORIES = [
-  'Alimentação',
-  'Transporte',
-  'Moradia',
-  'Lazer',
-  'Saúde',
-  'Educação',
-  'Salário',
-  'Outros',
-]
-
 export default function Transactions() {
-  const { transactions, addTransaction, updateTransaction, deleteTransaction, cards } = useFinance()
+  const { transactions, addTransaction, updateTransaction, deleteTransaction, cards, categories } =
+    useFinance()
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -52,7 +42,7 @@ export default function Transactions() {
     type: 'expense',
     amount: 0,
     description: '',
-    category: 'Outros',
+    category: categories[0]?.name || 'Outros',
     origin: 'Conta Principal',
     date: new Date().toISOString().split('T')[0],
     tags: '',
@@ -85,7 +75,7 @@ export default function Transactions() {
       type: 'expense',
       amount: 0,
       description: '',
-      category: 'Outros',
+      category: categories[0]?.name || 'Outros',
       origin: 'Conta Principal',
       date: new Date().toISOString().split('T')[0],
       tags: '',
@@ -131,33 +121,18 @@ export default function Transactions() {
           />
         </div>
         <div className="flex bg-[#161925] p-1 rounded-lg border border-slate-800">
-          <button
-            className={cn(
-              'px-4 py-1.5 text-sm font-medium rounded-md transition-colors',
-              filter === 'all' ? 'bg-[#0f766e] text-white' : 'text-slate-400 hover:text-white',
-            )}
-            onClick={() => setFilter('all')}
-          >
-            Todas
-          </button>
-          <button
-            className={cn(
-              'px-4 py-1.5 text-sm font-medium rounded-md transition-colors',
-              filter === 'income' ? 'bg-[#0f766e] text-white' : 'text-slate-400 hover:text-white',
-            )}
-            onClick={() => setFilter('income')}
-          >
-            Receitas
-          </button>
-          <button
-            className={cn(
-              'px-4 py-1.5 text-sm font-medium rounded-md transition-colors',
-              filter === 'expense' ? 'bg-[#0f766e] text-white' : 'text-slate-400 hover:text-white',
-            )}
-            onClick={() => setFilter('expense')}
-          >
-            Despesas
-          </button>
+          {(['all', 'income', 'expense'] as const).map((f) => (
+            <button
+              key={f}
+              className={cn(
+                'px-4 py-1.5 text-sm font-medium rounded-md transition-colors',
+                filter === f ? 'bg-[#0f766e] text-white' : 'text-slate-400 hover:text-white',
+              )}
+              onClick={() => setFilter(f)}
+            >
+              {f === 'all' ? 'Todas' : f === 'income' ? 'Receitas' : 'Despesas'}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -192,7 +167,18 @@ export default function Transactions() {
                     {t.tags && <span className="text-[10px] text-slate-500 mt-0.5">{t.tags}</span>}
                   </div>
                 </TableCell>
-                <TableCell className="text-slate-400 text-sm">{t.category}</TableCell>
+                <TableCell className="text-slate-400 text-sm">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span
+                      className="w-2 h-2 rounded-full"
+                      style={{
+                        backgroundColor:
+                          categories.find((c) => c.name === t.category)?.color || '#64748b',
+                      }}
+                    />
+                    {t.category}
+                  </span>
+                </TableCell>
                 <TableCell className="text-slate-400 text-sm">
                   {format(new Date(t.date), 'dd/MM/yyyy')}
                 </TableCell>
@@ -211,7 +197,7 @@ export default function Transactions() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-700"
+                      className="h-8 w-8 text-slate-400 hover:text-white"
                       onClick={() => openEdit(t)}
                     >
                       <Edit2 className="h-4 w-4" />
@@ -219,7 +205,7 @@ export default function Transactions() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-slate-400 hover:text-red-400 hover:bg-red-500/10"
+                      className="h-8 w-8 text-slate-400 hover:text-red-400"
                       onClick={() => {
                         deleteTransaction(t.id)
                         toast({ title: 'Excluída' })
@@ -231,13 +217,6 @@ export default function Transactions() {
                 </TableCell>
               </TableRow>
             ))}
-            {filteredList.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-slate-500">
-                  Nenhuma transação encontrada.
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
       </div>
@@ -262,9 +241,7 @@ export default function Transactions() {
               <button
                 className={cn(
                   'flex-1 py-2 text-sm font-semibold rounded-md transition-all',
-                  newTx.type === 'expense'
-                    ? 'bg-red-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white',
+                  newTx.type === 'expense' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400',
                 )}
                 onClick={() => setNewTx({ ...newTx, type: 'expense' })}
               >
@@ -275,7 +252,7 @@ export default function Transactions() {
                   'flex-1 py-2 text-sm font-semibold rounded-md transition-all',
                   newTx.type === 'income'
                     ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white',
+                    : 'text-slate-400',
                 )}
                 onClick={() => setNewTx({ ...newTx, type: 'income' })}
               >
@@ -286,8 +263,7 @@ export default function Transactions() {
               <div className="space-y-2">
                 <Label>Descrição</Label>
                 <Input
-                  className="bg-[#0b0e14] border-slate-700 focus-visible:ring-[#0f766e]"
-                  placeholder="Ex: Supermercado"
+                  className="bg-[#0b0e14] border-slate-700"
                   value={newTx.description}
                   onChange={(e) => setNewTx({ ...newTx, description: e.target.value })}
                 />
@@ -296,8 +272,7 @@ export default function Transactions() {
                 <Label>Valor (R$)</Label>
                 <Input
                   type="number"
-                  className="bg-[#0b0e14] border-slate-700 focus-visible:ring-[#0f766e]"
-                  placeholder="0,00"
+                  className="bg-[#0b0e14] border-slate-700"
                   value={newTx.amount || ''}
                   onChange={(e) => setNewTx({ ...newTx, amount: e.target.value })}
                 />
@@ -314,9 +289,9 @@ export default function Transactions() {
                     <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
                   <SelectContent className="bg-[#161925] border-slate-700 text-slate-100">
-                    {CATEGORIES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.name}>
+                        {c.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -326,7 +301,7 @@ export default function Transactions() {
                 <Label>Data</Label>
                 <Input
                   type="date"
-                  className="bg-[#0b0e14] border-slate-700 focus-visible:ring-[#0f766e]"
+                  className="bg-[#0b0e14] border-slate-700"
                   value={newTx.date as string}
                   onChange={(e) => setNewTx({ ...newTx, date: e.target.value })}
                 />
@@ -354,8 +329,7 @@ export default function Transactions() {
               <div className="space-y-2">
                 <Label>Tags</Label>
                 <Input
-                  className="bg-[#0b0e14] border-slate-700 focus-visible:ring-[#0f766e]"
-                  placeholder="Ex: essencial, fixo"
+                  className="bg-[#0b0e14] border-slate-700"
                   value={newTx.tags}
                   onChange={(e) => setNewTx({ ...newTx, tags: e.target.value })}
                 />
@@ -365,7 +339,7 @@ export default function Transactions() {
           <DialogFooter>
             <Button
               variant="outline"
-              className="bg-transparent border-slate-700 text-white hover:bg-slate-800"
+              className="bg-transparent border-slate-700 text-white"
               onClick={() => {
                 setIsAddOpen(false)
                 setEditingTx(null)
@@ -373,10 +347,7 @@ export default function Transactions() {
             >
               Cancelar
             </Button>
-            <Button
-              className="bg-[#0f766e] text-white hover:bg-[#0f766e]/90 px-8"
-              onClick={handleSave}
-            >
+            <Button className="bg-[#0f766e] text-white" onClick={handleSave}>
               Salvar
             </Button>
           </DialogFooter>

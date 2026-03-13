@@ -15,9 +15,11 @@ export type Card = {
   id: string
   name: string
   type: string
+  last4: string
   color: string
   limit: number
   used: number
+  closingDate: string
   dueDate: string
   status: 'Aberta' | 'Fechada' | 'Atrasada'
 }
@@ -35,7 +37,9 @@ type FinanceContextType = {
   addTransaction: (tx: Omit<Transaction, 'id'>) => void
   addCard: (card: Omit<Card, 'id'>) => void
   updateCard: (id: string, cardData: Partial<Card>) => void
+  deleteCard: (id: string) => void
   updateTransaction: (id: string, txData: Partial<Transaction>) => void
+  deleteTransaction: (id: string) => void
 }
 
 const FinanceContext = createContext<FinanceContextType | null>(null)
@@ -49,22 +53,26 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
   const [cards, setCards] = useState<Card[]>([
     {
       id: '1',
-      name: 'Nubank',
+      name: 'Nubank Platinum',
       type: 'Mastercard',
+      last4: '5119',
       color: '#8a05be',
       limit: 5000,
       used: 4200,
-      dueDate: '2023-11-10',
+      closingDate: '2026-03-20',
+      dueDate: '2026-03-27',
       status: 'Aberta',
     },
     {
       id: '2',
       name: 'Itaú',
       type: 'Visa',
+      last4: '0000',
       color: '#ff7800',
       limit: 10000,
       used: 1500,
-      dueDate: '2023-11-15',
+      closingDate: '2026-03-15',
+      dueDate: '2026-03-22',
       status: 'Fechada',
     },
   ])
@@ -94,7 +102,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       description: 'Supermercado',
       type: 'expense',
       date: new Date().toISOString(),
-      origin: 'Nubank',
+      origin: 'Nubank Platinum',
       category: 'Alimentação',
     },
   ])
@@ -107,6 +115,10 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
 
   const updateCard = (id: string, cardData: Partial<Card>) => {
     setCards((prev) => prev.map((c) => (c.id === id ? { ...c, ...cardData } : c)))
+  }
+
+  const deleteCard = (id: string) => {
+    setCards((prev) => prev.filter((c) => c.id !== id))
   }
 
   const addTransaction = (tx: Omit<Transaction, 'id'>) => {
@@ -135,39 +147,47 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     const oldTx = transactions.find((t) => t.id === id)
     if (!oldTx) return
 
-    const newTx = { ...oldTx, ...txData }
+    const newTx = { ...oldTx, ...txData } as Transaction
     setTransactions((prev) => prev.map((t) => (t.id === id ? newTx : t)))
 
     const isOldCard = cards.some((c) => c.name === oldTx.origin)
     const isNewCard = cards.some((c) => c.name === newTx.origin)
 
-    if (isOldCard || isNewCard) {
-      setCards((prevCards) => {
-        const updated = [...prevCards]
-        const oldIndex = updated.findIndex((c) => c.name === oldTx.origin)
-        if (oldIndex !== -1) {
-          updated[oldIndex] = {
-            ...updated[oldIndex],
-            used: Math.max(
-              0,
-              updated[oldIndex].used - (oldTx.type === 'expense' ? oldTx.amount : -oldTx.amount),
-            ),
-          }
-        }
-        const newIndex = updated.findIndex((c) => c.name === newTx.origin)
-        if (newIndex !== -1) {
-          updated[newIndex] = {
-            ...updated[newIndex],
-            used: Math.max(
-              0,
-              updated[newIndex].used + (newTx.type === 'expense' ? newTx.amount : -newTx.amount),
-            ),
-          }
-        }
-        return updated
-      })
+    // Revert old transaction effect on cards
+    if (isOldCard) {
+      setCards((prev) =>
+        prev.map((c) =>
+          c.name === oldTx.origin
+            ? {
+                ...c,
+                used: Math.max(
+                  0,
+                  c.used - (oldTx.type === 'expense' ? oldTx.amount : -oldTx.amount),
+                ),
+              }
+            : c,
+        ),
+      )
     }
 
+    // Apply new transaction effect on cards
+    if (isNewCard) {
+      setCards((prev) =>
+        prev.map((c) =>
+          c.name === newTx.origin
+            ? {
+                ...c,
+                used: Math.max(
+                  0,
+                  c.used + (newTx.type === 'expense' ? newTx.amount : -newTx.amount),
+                ),
+              }
+            : c,
+        ),
+      )
+    }
+
+    // Adjust balance if not a card transaction
     if (!isOldCard || !isNewCard) {
       setBalance((prev) => {
         let b = prev
@@ -175,6 +195,26 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
         if (!isNewCard) b = newTx.type === 'income' ? b + newTx.amount : b - newTx.amount
         return b
       })
+    }
+  }
+
+  const deleteTransaction = (id: string) => {
+    const tx = transactions.find((t) => t.id === id)
+    if (!tx) return
+
+    setTransactions((prev) => prev.filter((t) => t.id !== id))
+
+    const isCard = cards.some((c) => c.name === tx.origin)
+    if (isCard) {
+      setCards((prev) =>
+        prev.map((c) =>
+          c.name === tx.origin
+            ? { ...c, used: Math.max(0, c.used - (tx.type === 'expense' ? tx.amount : -tx.amount)) }
+            : c,
+        ),
+      )
+    } else {
+      setBalance((prev) => (tx.type === 'income' ? prev - tx.amount : prev + tx.amount))
     }
   }
 
@@ -192,7 +232,9 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       addTransaction,
       addCard,
       updateCard,
+      deleteCard,
       updateTransaction,
+      deleteTransaction,
     }),
     [isLoggedIn, balance, transactions, cards, isMagicDrawerOpen, currentMonth],
   )

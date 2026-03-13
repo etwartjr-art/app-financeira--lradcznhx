@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -7,11 +8,17 @@ import Layout from '@/components/Layout'
 import Index from '@/pages/Index'
 import Dashboard from '@/pages/Dashboard'
 import Cards from '@/pages/Cards'
-import Conciliation from '@/pages/Conciliation'
-import Admin from '@/pages/Admin'
+import Transactions from '@/pages/Transactions'
+import Import from '@/pages/Import'
+import Users from '@/pages/Users'
 import NotFound from '@/pages/NotFound'
 
 function App() {
+  // Force dark mode for this specific layout
+  useEffect(() => {
+    document.documentElement.classList.add('dark')
+  }, [])
+
   return (
     <FinanceProvider>
       <TooltipProvider>
@@ -25,9 +32,14 @@ function App() {
             {/* Protected Routes inside Layout */}
             <Route element={<Layout />}>
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/transactions" element={<Transactions />} />
               <Route path="/cards" element={<Cards />} />
-              <Route path="/conciliation" element={<Conciliation />} />
-              <Route path="/admin" element={<Admin />} />
+              <Route path="/import" element={<Import />} />
+              <Route path="/users" element={<Users />} />
+
+              {/* Legacy route redirects to keep links from breaking if saved */}
+              <Route path="/conciliation" element={<Navigate to="/import" replace />} />
+              <Route path="/admin" element={<Navigate to="/users" replace />} />
             </Route>
 
             {/* 404 Route */}

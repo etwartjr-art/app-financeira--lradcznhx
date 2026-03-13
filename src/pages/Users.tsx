@@ -26,41 +26,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Edit, UserPlus, ShieldAlert, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Edit, UserPlus, ShieldAlert, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
-
-type User = {
-  id: string
-  name: string
-  email: string
-  role: 'Admin' | 'User'
-  situation: 'Ativo' | 'Devedor'
-}
+import { useFinance, type User } from '@/stores/FinanceContext'
 
 export default function Users() {
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: '1',
-      name: 'João Silva',
-      email: 'joao@financasetw.com.br',
-      role: 'Admin',
-      situation: 'Ativo',
-    },
-    {
-      id: '2',
-      name: 'Maria Souza',
-      email: 'maria@financasetw.com.br',
-      role: 'User',
-      situation: 'Devedor',
-    },
-    {
-      id: '3',
-      name: 'Carlos Santos',
-      email: 'carlos@financasetw.com.br',
-      role: 'User',
-      situation: 'Ativo',
-    },
-  ])
+  const { users, addUser, updateUser, deleteUser } = useFinance()
 
   const [modal, setModal] = useState<{ open: boolean; mode: 'add' | 'edit'; user: Partial<User> }>({
     open: false,
@@ -74,17 +45,24 @@ export default function Users() {
     }
 
     if (modal.mode === 'add') {
-      const newUser = {
-        ...modal.user,
-        id: Math.random().toString(),
-      } as User
-      setUsers([...users, newUser])
+      if (!modal.user.password) {
+        return toast({
+          title: 'A senha é obrigatória para novos usuários!',
+          variant: 'destructive',
+        })
+      }
+      addUser(modal.user as Omit<User, 'id'>)
       toast({ title: 'Usuário adicionado com sucesso!' })
     } else {
-      setUsers(users.map((u) => (u.id === modal.user.id ? (modal.user as User) : u)))
+      updateUser(modal.user.id!, modal.user)
       toast({ title: 'Usuário atualizado com sucesso!' })
     }
     setModal({ open: false, mode: 'add', user: { role: 'User', situation: 'Ativo' } })
+  }
+
+  const handleDelete = (id: string) => {
+    deleteUser(id)
+    toast({ title: 'Usuário removido do sistema.' })
   }
 
   return (
@@ -127,11 +105,11 @@ export default function Users() {
           </TableHeader>
           <TableBody>
             {users.map((user) => (
-              <TableRow key={user.id} className="border-slate-800/50 hover:bg-slate-800/30">
+              <TableRow key={user.id} className="border-slate-800/50 hover:bg-slate-800/30 group">
                 <TableCell className="font-medium text-slate-200">
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-semibold text-slate-300">
-                      {user.name.charAt(0)}
+                      {user.name.charAt(0).toUpperCase()}
                     </div>
                     {user.name}
                   </div>
@@ -164,14 +142,24 @@ export default function Users() {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-slate-400 hover:text-white"
-                    onClick={() => setModal({ open: true, mode: 'edit', user })}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-slate-400 hover:text-white"
+                      onClick={() => setModal({ open: true, mode: 'edit', user })}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-slate-400 hover:text-red-400"
+                      onClick={() => handleDelete(user.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -208,6 +196,20 @@ export default function Users() {
                 }
               />
             </div>
+            {modal.mode === 'add' && (
+              <div className="space-y-2">
+                <Label>Senha Temporária</Label>
+                <Input
+                  type="text"
+                  className="bg-[#0b0e14] border-slate-700 focus-visible:ring-[#0f766e] font-mono"
+                  value={modal.user.password || ''}
+                  onChange={(e) =>
+                    setModal({ ...modal, user: { ...modal.user, password: e.target.value } })
+                  }
+                  placeholder="Defina uma senha de acesso"
+                />
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">

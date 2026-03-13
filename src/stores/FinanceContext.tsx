@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useMemo, useEffect } from 'react'
+import React, { createContext, useContext, useState, useMemo } from 'react'
 
 export type Transaction = {
   id: string
@@ -31,12 +31,22 @@ export type Category = {
   color: string
 }
 
+export type User = {
+  id: string
+  name: string
+  email: string
+  password?: string
+  role: 'Admin' | 'User'
+  situation: 'Ativo' | 'Devedor'
+}
+
 type FinanceContextType = {
   isLoggedIn: boolean
   balance: number
   transactions: Transaction[]
   cards: Card[]
   categories: Category[]
+  users: User[]
   currentMonth: Date
   setCurrentMonth: (date: Date) => void
   login: () => void
@@ -50,6 +60,9 @@ type FinanceContextType = {
   addCategory: (cat: Omit<Category, 'id'>) => void
   updateCategory: (id: string, catData: Partial<Category>) => void
   deleteCategory: (id: string) => void
+  addUser: (user: Omit<User, 'id'>) => void
+  updateUser: (id: string, userData: Partial<User>) => void
+  deleteUser: (id: string) => void
 }
 
 const FinanceContext = createContext<FinanceContextType | null>(null)
@@ -63,6 +76,33 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
 
   const [balance, setBalance] = useState(12450.5)
   const [currentMonth, setCurrentMonth] = useState(new Date())
+
+  const [users, setUsers] = useState<User[]>([
+    {
+      id: '1',
+      name: 'Etwart Jr',
+      email: 'Etwartjr@gmail.com',
+      password: 'Samuel@1234@',
+      role: 'Admin',
+      situation: 'Ativo',
+    },
+    {
+      id: '2',
+      name: 'Maria Souza',
+      email: 'maria@financasetw.com.br',
+      password: 'password123',
+      role: 'User',
+      situation: 'Devedor',
+    },
+    {
+      id: '3',
+      name: 'Carlos Santos',
+      email: 'carlos@financasetw.com.br',
+      password: 'password123',
+      role: 'User',
+      situation: 'Ativo',
+    },
+  ])
 
   const [categories, setCategories] = useState<Category[]>([
     { id: '1', name: 'Alimentação', color: '#ef4444' },
@@ -147,6 +187,12 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     setIsLoggedIn(false)
   }
 
+  const addUser = (user: Omit<User, 'id'>) =>
+    setUsers((p) => [...p, { ...user, id: Math.random().toString() }])
+  const updateUser = (id: string, data: Partial<User>) =>
+    setUsers((p) => p.map((u) => (u.id === id ? { ...u, ...data } : u)))
+  const deleteUser = (id: string) => setUsers((p) => p.filter((u) => u.id !== id))
+
   const addCategory = (cat: Omit<Category, 'id'>) =>
     setCategories((p) => [...p, { ...cat, id: Math.random().toString() }])
   const updateCategory = (id: string, data: Partial<Category>) =>
@@ -186,6 +232,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       transactions,
       cards,
       categories,
+      users,
       currentMonth,
       setCurrentMonth,
       login,
@@ -199,8 +246,11 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       addCategory,
       updateCategory,
       deleteCategory,
+      addUser,
+      updateUser,
+      deleteUser,
     }),
-    [isLoggedIn, balance, transactions, cards, categories, currentMonth],
+    [isLoggedIn, balance, transactions, cards, categories, users, currentMonth],
   )
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>

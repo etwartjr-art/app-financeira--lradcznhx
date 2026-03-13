@@ -74,26 +74,36 @@ export function CategoryExpensesChart({ data }: { data: any[] }) {
     )
   }
 
+  const config = data.reduce(
+    (acc, curr) => {
+      acc[curr.name] = { label: curr.name, color: curr.color }
+      return acc
+    },
+    {} as Record<string, { label: string; color: string }>,
+  )
+
   return (
-    <ResponsiveContainer width="100%" height={200}>
-      <PieChart>
-        <Tooltip content={<ChartTooltipContent />} />
-        <Pie
-          data={data}
-          dataKey="value"
-          nameKey="name"
-          cx="50%"
-          cy="50%"
-          innerRadius={60}
-          outerRadius={80}
-          paddingAngle={2}
-          stroke="none"
-        >
-          {data.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={entry.color} />
-          ))}
-        </Pie>
-      </PieChart>
-    </ResponsiveContainer>
+    <ChartContainer config={config} className="w-full h-[200px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Tooltip content={<ChartTooltipContent hideLabel />} />
+          <Pie
+            data={data}
+            dataKey="value"
+            nameKey="name"
+            cx="50%"
+            cy="50%"
+            innerRadius={60}
+            outerRadius={80}
+            paddingAngle={2}
+            stroke="none"
+          >
+            {data.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.color} />
+            ))}
+          </Pie>
+        </PieChart>
+      </ResponsiveContainer>
+    </ChartContainer>
   )
 }

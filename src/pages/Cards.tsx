@@ -1,5 +1,11 @@
 import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card as UICard,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,49 +18,58 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Plus, ChevronLeft, ChevronRight, CreditCard as CardIcon, Edit2 } from 'lucide-react'
-import { useFinance, type Card as CardType } from '@/stores/FinanceContext'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import {
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  CreditCard as CardIcon,
+  Edit2,
+  ChevronDown,
+  ReceiptText,
+} from 'lucide-react'
+import { useFinance, type Card as CardType, type Transaction } from '@/stores/FinanceContext'
 import { format, addMonths, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { toast } from '@/hooks/use-toast'
 
 export default function Cards() {
-  const { cards, addCard, updateCard, transactions, currentMonth, setCurrentMonth } = useFinance()
+  const {
+    cards,
+    addCard,
+    updateCard,
+    transactions,
+    currentMonth,
+    setCurrentMonth,
+    updateTransaction,
+  } = useFinance()
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [editingCard, setEditingCard] = useState<CardType | null>(null)
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null)
 
   const [newCard, setNewCard] = useState({
     name: '',
     type: 'Credit',
     limit: '',
-    used: '',
     color: '#18181b',
   })
 
-  const cardTransactions = transactions.filter(
-    (t) =>
-      cards.some((c) => c.name === t.origin) &&
-      new Date(t.date).getMonth() === currentMonth.getMonth() &&
-      new Date(t.date).getFullYear() === currentMonth.getFullYear(),
-  )
-
   const handleSaveCard = () => {
     const limitNum = parseFloat(newCard.limit)
-    const usedNum = parseFloat(newCard.used)
-    if (!newCard.name || isNaN(limitNum) || isNaN(usedNum)) {
+    if (!newCard.name || isNaN(limitNum)) {
       return toast({ title: 'Preencha os campos numéricos corretamente.', variant: 'destructive' })
     }
     addCard({
       name: newCard.name,
       type: newCard.type,
       limit: limitNum,
-      used: usedNum,
+      used: 0,
       color: newCard.color,
       dueDate: new Date().toISOString().split('T')[0],
       status: 'Aberta',
     })
     setIsAddOpen(false)
-    setNewCard({ name: '', type: 'Credit', limit: '', used: '', color: '#18181b' })
+    setNewCard({ name: '', type: 'Credit', limit: '', color: '#18181b' })
     toast({ title: 'Cartão adicionado com sucesso!' })
   }
 
@@ -71,6 +86,18 @@ export default function Cards() {
     })
     setEditingCard(null)
     toast({ title: 'Cartão atualizado com sucesso!' })
+  }
+
+  const handleUpdateTx = () => {
+    if (!editingTx) return
+    updateTransaction(editingTx.id, {
+      description: editingTx.description,
+      amount: Number(editingTx.amount),
+      date: editingTx.date,
+      category: editingTx.category,
+    })
+    setEditingTx(null)
+    toast({ title: 'Transação atualizada com sucesso!' })
   }
 
   return (
@@ -121,31 +148,32 @@ export default function Cards() {
                     placeholder="Ex: Nubank"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Bandeira / Tipo</Label>
-                  <Input
-                    value={newCard.type}
-                    onChange={(e) => setNewCard({ ...newCard, type: e.target.value })}
-                    placeholder="Ex: Mastercard"
-                  />
-                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Limite Total</Label>
+                    <Label>Bandeira / Tipo</Label>
                     <Input
-                      type="number"
-                      value={newCard.limit}
-                      onChange={(e) => setNewCard({ ...newCard, limit: e.target.value })}
+                      value={newCard.type}
+                      onChange={(e) => setNewCard({ ...newCard, type: e.target.value })}
+                      placeholder="Ex: Mastercard"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Limite Usado</Label>
+                    <Label>Cor do Cartão</Label>
                     <Input
-                      type="number"
-                      value={newCard.used}
-                      onChange={(e) => setNewCard({ ...newCard, used: e.target.value })}
+                      type="color"
+                      className="p-1 h-10"
+                      value={newCard.color}
+                      onChange={(e) => setNewCard({ ...newCard, color: e.target.value })}
                     />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Limite Total</Label>
+                  <Input
+                    type="number"
+                    value={newCard.limit}
+                    onChange={(e) => setNewCard({ ...newCard, limit: e.target.value })}
+                  />
                 </div>
               </div>
               <DialogFooter>
@@ -156,48 +184,101 @@ export default function Cards() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {cards.map((card) => {
-          const perc = Math.min((card.used / card.limit) * 100, 100)
+          const cardTransactions = transactions.filter(
+            (t) =>
+              t.origin === card.name &&
+              t.type === 'expense' &&
+              new Date(t.date).getMonth() === currentMonth.getMonth() &&
+              new Date(t.date).getFullYear() === currentMonth.getFullYear(),
+          )
+
+          const usedThisMonth = cardTransactions.reduce((acc, t) => acc + t.amount, 0)
+          const perc = Math.min((usedThisMonth / card.limit) * 100, 100)
+          const available = Math.max(0, card.limit - usedThisMonth)
+
           return (
-            <Card
+            <div
               key={card.id}
-              className="relative overflow-hidden shadow-md border-0 text-white"
-              style={{ backgroundColor: card.color }}
+              className="flex flex-col gap-0 rounded-xl border bg-card text-card-foreground shadow-sm overflow-hidden animate-fade-in-up"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-black/20 to-black/60 pointer-events-none" />
-              <CardHeader className="relative z-10 pb-2">
-                <div className="flex justify-between items-start">
+              <div
+                className="relative p-6 text-white transition-colors"
+                style={{ backgroundColor: card.color }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-black/20 to-black/60 pointer-events-none" />
+                <div className="relative z-10 flex justify-between items-start mb-6">
                   <div>
-                    <CardTitle className="text-xl font-bold">{card.name}</CardTitle>
-                    <CardDescription className="text-white/80">{card.type}</CardDescription>
+                    <h3 className="text-xl font-bold">{card.name}</h3>
+                    <p className="text-white/80 text-sm">{card.type}</p>
                   </div>
-                  <div className="flex flex-col items-center gap-2">
+                  <div className="flex items-center gap-2">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 text-white/70 hover:text-white hover:bg-white/20"
+                      className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/20"
                       onClick={() => setEditingCard(card)}
                     >
-                      <Edit2 className="h-3 w-3" />
+                      <Edit2 className="h-4 w-4" />
                     </Button>
-                    <CardIcon className="h-6 w-6 opacity-70" />
+                    <CardIcon className="h-8 w-8 opacity-70" />
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent className="relative z-10 space-y-4 pt-4">
-                <div className="space-y-2">
+
+                <div className="relative z-10 space-y-2">
                   <div className="flex justify-between text-sm font-medium">
-                    <span>Usado: R$ {card.used.toFixed(2)}</span>
+                    <span>Usado: R$ {usedThisMonth.toFixed(2)}</span>
                     <span>Total: R$ {card.limit.toFixed(2)}</span>
                   </div>
-                  <Progress value={perc} className="h-2 bg-white/20" />
+                  <Progress value={perc} className="h-2 bg-white/20 [&>div]:bg-white" />
                   <p className="text-right text-xs font-semibold text-white/90">
-                    Disponível: R$ {(card.limit - card.used).toFixed(2)}
+                    Disponível: R$ {available.toFixed(2)}
                   </p>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+
+              <div className="p-4 bg-card">
+                <Collapsible>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="outline" className="w-full flex justify-between group">
+                      <span className="flex items-center gap-2">
+                        <ReceiptText className="w-4 h-4" />
+                        Despesas do Mês
+                      </span>
+                      <ChevronDown className="w-4 h-4 transition-transform group-data-[state=open]:rotate-180" />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-4 data-[state=open]:animate-fade-in">
+                    {cardTransactions.length === 0 ? (
+                      <p className="text-sm text-center text-muted-foreground py-6 border rounded-md border-dashed">
+                        Nenhuma despesa lançada para este cartão neste mês.
+                      </p>
+                    ) : (
+                      <div className="space-y-2 max-h-[280px] overflow-y-auto pr-2">
+                        {cardTransactions.map((tx) => (
+                          <div
+                            key={tx.id}
+                            onClick={() => setEditingTx(tx)}
+                            className="flex justify-between items-center p-3 rounded-lg border bg-background hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors"
+                          >
+                            <div className="flex flex-col overflow-hidden mr-2">
+                              <span className="text-sm font-medium truncate">{tx.description}</span>
+                              <span className="text-xs text-muted-foreground truncate">
+                                {tx.category} • {format(new Date(tx.date), 'dd/MM/yyyy')}
+                              </span>
+                            </div>
+                            <span className="text-sm font-semibold text-rose-500 whitespace-nowrap shrink-0">
+                              - R$ {tx.amount.toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+            </div>
           )
         })}
       </div>
@@ -241,36 +322,58 @@ export default function Cards() {
         </DialogContent>
       </Dialog>
 
-      <Card className="mt-4">
-        <CardHeader>
-          <CardTitle>
-            Despesas no Cartão - {format(currentMonth, 'MMMM', { locale: ptBR })}
-          </CardTitle>
-          <CardDescription>Gastos lançados em cartões neste mês.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {cardTransactions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhuma transação de cartão neste mês.</p>
-          ) : (
-            <div className="space-y-4">
-              {cardTransactions.map((t) => (
-                <div
-                  key={t.id}
-                  className="flex justify-between items-center border-b pb-2 last:border-0 last:pb-0"
-                >
-                  <div>
-                    <p className="font-medium text-sm">{t.description}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {t.origin} • {format(new Date(t.date), 'dd/MM/yyyy')}
-                    </p>
-                  </div>
-                  <span className="font-semibold text-rose-600">- R$ {t.amount.toFixed(2)}</span>
+      <Dialog open={!!editingTx} onOpenChange={(open) => !open && setEditingTx(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Despesa</DialogTitle>
+          </DialogHeader>
+          {editingTx && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Descrição</Label>
+                <Input
+                  value={editingTx.description}
+                  onChange={(e) => setEditingTx({ ...editingTx, description: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Categoria</Label>
+                <Input
+                  value={editingTx.category}
+                  onChange={(e) => setEditingTx({ ...editingTx, category: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Valor (R$)</Label>
+                  <Input
+                    type="number"
+                    value={editingTx.amount}
+                    onChange={(e) => setEditingTx({ ...editingTx, amount: Number(e.target.value) })}
+                  />
                 </div>
-              ))}
+                <div className="space-y-2">
+                  <Label>Data</Label>
+                  <Input
+                    type="date"
+                    value={editingTx.date.substring(0, 10)}
+                    onChange={(e) => {
+                      const newDate = e.target.value
+                      if (newDate) {
+                        const d = new Date(`${newDate}T12:00:00Z`)
+                        setEditingTx({ ...editingTx, date: d.toISOString() })
+                      }
+                    }}
+                  />
+                </div>
+              </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+          <DialogFooter>
+            <Button onClick={handleUpdateTx}>Salvar Alterações</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

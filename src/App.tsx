@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import React, { useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
@@ -14,6 +14,41 @@ import Import from '@/pages/Import'
 import Users from '@/pages/Users'
 import AnnualReport from '@/pages/AnnualReport'
 import NotFound from '@/pages/NotFound'
+import logoImg from '@/assets/financas-pessoal-etw-5d9f2.png'
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error('App UI Error:', error, errorInfo)
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#0b0e14] text-slate-50 p-4">
+          <img src={logoImg} alt="Logo" className="mb-6 h-16 w-16 object-contain opacity-50" />
+          <h2 className="text-xl font-bold text-red-500 mb-2">Ops! Ocorreu um erro.</h2>
+          <p className="text-slate-400 text-sm mb-6 text-center max-w-sm">
+            Tivemos um problema ao carregar esta tela. Clique no botão abaixo para recarregar a
+            aplicação.
+          </p>
+          <button
+            onClick={() => window.location.replace('/dashboard')}
+            className="px-6 py-2.5 bg-[#0f766e] hover:bg-[#0f766e]/90 transition-colors rounded-lg text-sm font-medium"
+          >
+            Recarregar Aplicação
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 const ProtectedLayout = () => {
   const { isLoggedIn } = useFinance()
@@ -66,9 +101,11 @@ function App() {
   }, [])
 
   return (
-    <FinanceProvider>
-      <AppContent />
-    </FinanceProvider>
+    <ErrorBoundary>
+      <FinanceProvider>
+        <AppContent />
+      </FinanceProvider>
+    </ErrorBoundary>
   )
 }
 

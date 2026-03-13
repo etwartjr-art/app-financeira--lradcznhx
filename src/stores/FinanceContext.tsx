@@ -75,7 +75,10 @@ const FinanceContext = createContext<FinanceContextType | null>(null)
 function loadState<T>(key: string, fallback: T): T {
   try {
     const saved = localStorage.getItem(key)
-    return saved ? JSON.parse(saved) : fallback
+    if (!saved) return fallback
+    const parsed = JSON.parse(saved)
+    if (Array.isArray(fallback) && !Array.isArray(parsed)) return fallback
+    return parsed !== null ? parsed : fallback
   } catch {
     return fallback
   }
@@ -172,7 +175,9 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
   const balance = useMemo(() => {
     return userTransactions.reduce((acc, tx) => {
       if (!userCards.some((c) => c.name === tx.origin)) {
-        return tx.type === 'income' ? acc + tx.amount : acc - tx.amount
+        return tx.type === 'income'
+          ? acc + (Number(tx.amount) || 0)
+          : acc - (Number(tx.amount) || 0)
       }
       return acc
     }, 0)
@@ -201,6 +206,9 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     setUsers((p) => p.map((u) => (u.id === id ? { ...u, ...data } : u)))
 
   const deleteUser = (id: string) => {
+    const userToDelete = users.find((u) => u.id === id)
+    if (userToDelete?.role === 'Admin') return // Prevent admin deletion
+
     setUsers((p) => p.filter((u) => u.id !== id))
     setTransactions((p) => p.filter((t) => t.userId !== id))
     setCards((p) => p.filter((c) => c.userId !== id))

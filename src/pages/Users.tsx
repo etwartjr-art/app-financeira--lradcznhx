@@ -43,6 +43,7 @@ export default function Users() {
   const getUsageTime = (dateStr?: string) => {
     if (!dateStr) return 'Desconhecido'
     const start = new Date(dateStr)
+    if (isNaN(start.getTime())) return 'Desconhecido'
     const now = new Date()
     const years = differenceInYears(now, start)
     const months = differenceInMonths(now, start) % 12
@@ -51,6 +52,12 @@ export default function Users() {
     if (years > 0) parts.push(`${years} ano${years > 1 ? 's' : ''}`)
     if (months > 0) parts.push(`${months} mês${months > 1 ? 'es' : ''}`)
     return parts.join(' e ')
+  }
+
+  const getFormattedDate = (dateStr?: string) => {
+    if (!dateStr) return '-'
+    const d = new Date(dateStr)
+    return isNaN(d.getTime()) ? '-' : format(d, 'dd/MM/yyyy')
   }
 
   const handleSaveUser = () => {
@@ -72,29 +79,17 @@ export default function Users() {
     setModal({ open: false, mode: 'add', user: { role: 'User', situation: 'Ativo' } })
   }
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = () => {
     if (!deleteConfirm.userId) return
 
     const userId = deleteConfirm.userId
     setDeleteConfirm({ open: false, userId: null })
 
-    const t = toast({
-      title: 'Processando...',
-      description: 'Limpando dados vinculados e removendo usuário.',
-    })
-
     try {
-      await new Promise((resolve) => setTimeout(resolve, 600))
       deleteUser(userId)
-      t.update({
-        id: t.id,
-        title: 'Usuário removido com sucesso',
-        description: undefined,
-        variant: 'default',
-      })
+      toast({ title: 'Usuário removido com sucesso' })
     } catch (error) {
-      t.update({
-        id: t.id,
+      toast({
         title: 'Erro ao remover',
         description: 'Não foi possível completar a operação. Tente novamente.',
         variant: 'destructive',
@@ -159,7 +154,7 @@ export default function Users() {
                 </TableCell>
                 <TableCell className="text-slate-400 text-sm">{user.email}</TableCell>
                 <TableCell className="text-slate-400 text-sm">
-                  {user.createdAt ? format(new Date(user.createdAt), 'dd/MM/yyyy') : '-'}
+                  {getFormattedDate(user.createdAt)}
                 </TableCell>
                 <TableCell className="text-slate-400 text-sm font-medium">
                   {getUsageTime(user.createdAt)}
@@ -200,14 +195,16 @@ export default function Users() {
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-slate-400 hover:text-red-400"
-                      onClick={() => setDeleteConfirm({ open: true, userId: user.id })}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {user.role !== 'Admin' && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-slate-400 hover:text-red-400"
+                        onClick={() => setDeleteConfirm({ open: true, userId: user.id })}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

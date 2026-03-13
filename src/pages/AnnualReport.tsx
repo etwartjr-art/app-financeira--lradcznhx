@@ -30,11 +30,17 @@ export default function AnnualReport() {
   const reportData = useMemo(() => {
     return MONTHS.map((monthName, index) => {
       const monthTxs = transactions.filter((t) => {
+        if (!t.date) return false
         const d = new Date(t.date)
+        if (isNaN(d.getTime())) return false
         return d.getMonth() === index && d.getFullYear() === year
       })
-      const income = monthTxs.filter((t) => t.type === 'income').reduce((a, b) => a + b.amount, 0)
-      const expense = monthTxs.filter((t) => t.type === 'expense').reduce((a, b) => a + b.amount, 0)
+      const income = monthTxs
+        .filter((t) => t.type === 'income')
+        .reduce((a, b) => a + (Number(b.amount) || 0), 0)
+      const expense = monthTxs
+        .filter((t) => t.type === 'expense')
+        .reduce((a, b) => a + (Number(b.amount) || 0), 0)
       return { month: monthName, Receitas: income, Despesas: expense, Saldo: income - expense }
     })
   }, [transactions, year])
@@ -49,7 +55,11 @@ export default function AnnualReport() {
   )
 
   const availableYears = Array.from(
-    new Set(transactions.map((t) => new Date(t.date).getFullYear())),
+    new Set(
+      transactions
+        .filter((t) => t.date && !isNaN(new Date(t.date).getTime()))
+        .map((t) => new Date(t.date).getFullYear()),
+    ),
   )
   if (!availableYears.includes(year)) availableYears.push(year)
   availableYears.sort((a, b) => b - a)
@@ -107,7 +117,7 @@ export default function AnnualReport() {
               <div className="space-y-2">
                 <p className="text-sm font-medium text-slate-400">{item.title}</p>
                 <p className="text-2xl font-bold text-white">
-                  R$ {item.val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {(Number(item.val) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </p>
               </div>
               <div className={`p-2 rounded-lg ${item.bg}`}>
@@ -189,10 +199,12 @@ export default function AnnualReport() {
               <TableRow key={d.month} className="border-slate-800/50 hover:bg-slate-800/30">
                 <TableCell className="font-medium text-slate-200">{d.month}</TableCell>
                 <TableCell className="text-right text-emerald-500 font-medium">
-                  R$ {d.Receitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R${' '}
+                  {(Number(d.Receitas) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </TableCell>
                 <TableCell className="text-right text-red-500 font-medium">
-                  - R$ {d.Despesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  - R${' '}
+                  {(Number(d.Despesas) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </TableCell>
                 <TableCell
                   className={cn(
@@ -200,7 +212,7 @@ export default function AnnualReport() {
                     d.Saldo >= 0 ? 'text-emerald-500' : 'text-red-500',
                   )}
                 >
-                  R$ {d.Saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {(Number(d.Saldo) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </TableCell>
               </TableRow>
             ))}

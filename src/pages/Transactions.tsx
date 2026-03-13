@@ -92,11 +92,13 @@ export default function Transactions() {
 
   const openEdit = (t: Transaction) => {
     setEditingTx(t)
-    setNewTx({ ...t, date: t.date.split('T')[0] })
+    setNewTx({ ...t, date: t.date?.split('T')[0] || '' })
   }
 
   const filteredList = transactions.filter((t) => {
+    if (!t.date) return false
     const d = new Date(t.date)
+    if (isNaN(d.getTime())) return false
     const matchesMonth =
       d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear()
     const matchesSearch =
@@ -105,6 +107,12 @@ export default function Transactions() {
     const matchesFilter = filter === 'all' ? true : t.type === filter
     return matchesMonth && matchesSearch && matchesFilter
   })
+
+  const getFormattedDate = (dateStr?: string) => {
+    if (!dateStr) return '-'
+    const d = new Date(dateStr)
+    return isNaN(d.getTime()) ? '-' : format(d, 'dd/MM/yyyy')
+  }
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-8 animate-fade-in max-w-7xl mx-auto">
@@ -193,9 +201,7 @@ export default function Transactions() {
                     {t.category}
                   </span>
                 </TableCell>
-                <TableCell className="text-slate-400 text-sm">
-                  {format(new Date(t.date), 'dd/MM/yyyy')}
-                </TableCell>
+                <TableCell className="text-slate-400 text-sm">{getFormattedDate(t.date)}</TableCell>
                 <TableCell className="text-slate-400 text-sm">{t.origin}</TableCell>
                 <TableCell
                   className={cn(
@@ -204,7 +210,7 @@ export default function Transactions() {
                   )}
                 >
                   {t.type === 'income' ? '' : '-'} R${' '}
-                  {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {(Number(t.amount) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

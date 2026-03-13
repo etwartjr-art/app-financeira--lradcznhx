@@ -22,7 +22,9 @@ export default function Dashboard() {
   const currentMonthTx = useMemo(
     () =>
       transactions.filter((t) => {
+        if (!t.date) return false
         const d = new Date(t.date)
+        if (isNaN(d.getTime())) return false
         return (
           d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear()
         )
@@ -32,18 +34,18 @@ export default function Dashboard() {
 
   const receitas = currentMonthTx
     .filter((t) => t.type === 'income')
-    .reduce((acc, t) => acc + t.amount, 0)
+    .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
   const despesas = currentMonthTx
     .filter((t) => t.type === 'expense')
-    .reduce((acc, t) => acc + t.amount, 0)
+    .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
   const economia = receitas - despesas
 
   const gerais = currentMonthTx
     .filter((t) => t.type === 'expense' && !cards.some((c) => c.name === t.origin))
-    .reduce((acc, t) => acc + t.amount, 0)
+    .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
   const despesasCartoes = currentMonthTx
     .filter((t) => t.type === 'expense' && cards.some((c) => c.name === t.origin))
-    .reduce((acc, t) => acc + t.amount, 0)
+    .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
   const totalConsolidado = gerais + despesasCartoes
   const percGerais = totalConsolidado ? (gerais / totalConsolidado) * 100 : 0
   const percCartoes = totalConsolidado ? (despesasCartoes / totalConsolidado) * 100 : 0
@@ -57,13 +59,15 @@ export default function Dashboard() {
     return Array.from({ length: daysInMonth }, (_, i) => {
       const day = i + 1
       const datePrefix = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-      const txForDay = currentMonthTx.filter((t) => t.date.startsWith(datePrefix))
+      const txForDay = currentMonthTx.filter((t) => t.date && t.date.startsWith(datePrefix))
       return {
         name: String(day),
-        Receitas: txForDay.filter((t) => t.type === 'income').reduce((acc, t) => acc + t.amount, 0),
+        Receitas: txForDay
+          .filter((t) => t.type === 'income')
+          .reduce((acc, t) => acc + (Number(t.amount) || 0), 0),
         Despesas: txForDay
           .filter((t) => t.type === 'expense')
-          .reduce((acc, t) => acc + t.amount, 0),
+          .reduce((acc, t) => acc + (Number(t.amount) || 0), 0),
       }
     })
   }, [currentMonthTx, currentMonth])
@@ -76,7 +80,7 @@ export default function Dashboard() {
           color: c.color,
           value: currentMonthTx
             .filter((t) => t.type === 'expense' && t.category === c.name)
-            .reduce((acc, t) => acc + t.amount, 0),
+            .reduce((acc, t) => acc + (Number(t.amount) || 0), 0),
         }))
         .filter((d) => d.value > 0)
         .sort((a, b) => b.value - a.value),
@@ -141,7 +145,7 @@ export default function Dashboard() {
               <div className="space-y-2">
                 <p className="text-sm font-medium text-slate-400">{item.title}</p>
                 <p className="text-2xl font-bold text-white">
-                  R$ {item.val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {(Number(item.val) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </p>
               </div>
               <div className={`p-2 rounded-lg ${item.bg}`}>
@@ -185,7 +189,7 @@ export default function Dashboard() {
               <div className="bg-[#0b0e14] p-4 rounded-xl flex-1 border border-slate-800">
                 <p className="text-xs text-slate-400 mb-1 font-medium">Despesas Gerais</p>
                 <p className="text-xl font-bold text-red-500">
-                  R$ {gerais.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {(Number(gerais) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </p>
               </div>
               <div className="bg-[#0b0e14] p-4 rounded-xl flex-1 border border-slate-800">
@@ -193,7 +197,10 @@ export default function Dashboard() {
                   <CreditCard className="w-3 h-3" /> Cartões
                 </p>
                 <p className="text-xl font-bold text-amber-500">
-                  R$ {despesasCartoes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R${' '}
+                  {(Number(despesasCartoes) || 0).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                  })}
                 </p>
               </div>
             </div>
@@ -201,7 +208,10 @@ export default function Dashboard() {
               <div className="flex justify-between text-sm items-end">
                 <span className="text-slate-400 font-medium">Total Consolidado</span>
                 <span className="font-bold text-white text-lg">
-                  R$ {totalConsolidado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R${' '}
+                  {(Number(totalConsolidado) || 0).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                  })}
                 </span>
               </div>
               <div className="h-3 flex rounded-full overflow-hidden bg-slate-800">
@@ -240,22 +250,23 @@ export default function Dashboard() {
               cards.map((c) => {
                 const used = currentMonthTx
                   .filter((t) => t.type === 'expense' && t.origin === c.name)
-                  .reduce((acc, t) => acc + t.amount, 0)
+                  .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
+                const limitNum = Number(c.limit) || 1
                 return (
                   <div key={c.id} className="space-y-2">
                     <div className="flex justify-between text-sm items-end">
                       <span className="text-slate-300 font-medium uppercase">{c.name}</span>
                       <span className="text-white font-bold tracking-tight">
-                        R$ {used.toLocaleString('pt-BR')}
+                        R$ {(Number(used) || 0).toLocaleString('pt-BR')}
                         <span className="text-xs font-normal text-slate-500 ml-1">
-                          / R$ {c.limit.toLocaleString('pt-BR')}
+                          / R$ {(Number(c.limit) || 0).toLocaleString('pt-BR')}
                         </span>
                       </span>
                     </div>
                     <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
                       <div
                         className="h-full bg-amber-500"
-                        style={{ width: `${Math.min((used / c.limit) * 100, 100)}%` }}
+                        style={{ width: `${Math.min((used / limitNum) * 100, 100)}%` }}
                       />
                     </div>
                   </div>
@@ -298,25 +309,31 @@ export default function Dashboard() {
                 </Button>
               </div>
             ) : (
-              currentMonthTx.slice(0, 5).map((t) => (
-                <div
-                  key={t.id}
-                  className="flex justify-between items-center py-2 border-b border-slate-800/50 last:border-0"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-slate-200">{t.description}</p>
-                    <p className="text-xs text-slate-500">
-                      {format(new Date(t.date), 'dd/MM/yyyy')} • {t.origin}
-                    </p>
-                  </div>
+              currentMonthTx.slice(0, 5).map((t) => {
+                const dateObj = new Date(t.date)
+                const safeDateStr = isNaN(dateObj.getTime()) ? '-' : format(dateObj, 'dd/MM/yyyy')
+                return (
                   <div
-                    className={`font-semibold ${t.type === 'income' ? 'text-emerald-500' : 'text-slate-300'}`}
+                    key={t.id}
+                    className="flex justify-between items-center py-2 border-b border-slate-800/50 last:border-0"
                   >
-                    {t.type === 'income' ? '+' : '-'} R${' '}
-                    {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    <div>
+                      <p className="text-sm font-medium text-slate-200">{t.description}</p>
+                      <p className="text-xs text-slate-500">
+                        {safeDateStr} • {t.origin}
+                      </p>
+                    </div>
+                    <div
+                      className={`font-semibold ${t.type === 'income' ? 'text-emerald-500' : 'text-slate-300'}`}
+                    >
+                      {t.type === 'income' ? '+' : '-'} R${' '}
+                      {(Number(t.amount) || 0).toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))
+                )
+              })
             )}
           </div>
         </CardContent>

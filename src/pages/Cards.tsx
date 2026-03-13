@@ -84,7 +84,7 @@ export default function Cards() {
       type: 'expense',
       category: 'Outros',
       origin: expenseCard.name,
-      date: new Date(newExp.date).toISOString(),
+      date: new Date(`${newExp.date}T12:00:00Z`).toISOString(),
       tags: newExp.tags,
     })
     setExpenseCard(null)
@@ -205,18 +205,23 @@ export default function Cards() {
         ) : (
           cards.map((card) => {
             const usedThisMonth = transactions
-              .filter(
-                (t) =>
+              .filter((t) => {
+                if (!t.date) return false
+                const d = new Date(t.date)
+                if (isNaN(d.getTime())) return false
+                return (
                   t.origin === card.name &&
                   t.type === 'expense' &&
-                  new Date(t.date).getMonth() === currentMonth.getMonth() &&
-                  new Date(t.date).getFullYear() === currentMonth.getFullYear(),
-              )
-              .reduce((acc, t) => acc + t.amount, 0)
+                  d.getMonth() === currentMonth.getMonth() &&
+                  d.getFullYear() === currentMonth.getFullYear()
+                )
+              })
+              .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
 
-            const activeUsed = usedThisMonth
-            const perc = Math.min((activeUsed / card.limit) * 100, 100)
-            const available = Math.max(0, card.limit - activeUsed)
+            const activeUsed = Number(usedThisMonth) || 0
+            const limitNum = Number(card.limit) || 1
+            const perc = Math.min((activeUsed / limitNum) * 100, 100)
+            const available = Math.max(0, limitNum - activeUsed)
 
             return (
               <div
@@ -259,10 +264,13 @@ export default function Cards() {
                       </span>
                     </div>
                     <div className="flex justify-between text-[10px] text-slate-500 font-medium uppercase tracking-wider">
-                      <span>{perc.toFixed(0)}% usado</span>
-                      <span>Limite: R$ {card.limit.toLocaleString('pt-BR')}</span>
+                      <span>{(perc || 0).toFixed(0)}% usado</span>
+                      <span>Limite: R$ {(Number(card.limit) || 0).toLocaleString('pt-BR')}</span>
                     </div>
-                    <Progress value={perc} className="h-1.5 bg-slate-800 [&>div]:bg-amber-500" />
+                    <Progress
+                      value={perc || 0}
+                      className="h-1.5 bg-slate-800 [&>div]:bg-amber-500"
+                    />
                   </div>
 
                   <div className="flex justify-between text-xs text-slate-500 mt-2 font-medium">

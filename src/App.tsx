@@ -34,14 +34,14 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
           <img src={logoImg} alt="Logo" className="mb-6 h-16 w-16 object-contain opacity-50" />
           <h2 className="text-xl font-bold text-red-500 mb-2">Ops! Ocorreu um erro.</h2>
           <p className="text-slate-400 text-sm mb-6 text-center max-w-sm">
-            Tivemos um problema ao carregar esta tela. Clique no botão abaixo para recarregar a
-            aplicação.
+            Tivemos um problema ao carregar esta tela. Clique no botão abaixo para recarregar o
+            aplicativo.
           </p>
           <button
             onClick={() => window.location.replace('/dashboard')}
             className="px-6 py-2.5 bg-[#0f766e] hover:bg-[#0f766e]/90 transition-colors rounded-lg text-sm font-medium"
           >
-            Recarregar Aplicação
+            Recarregar Aplicativo
           </button>
         </div>
       )

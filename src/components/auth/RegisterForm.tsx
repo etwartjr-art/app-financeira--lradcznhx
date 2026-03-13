@@ -54,7 +54,7 @@ export default function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () 
 
     toast({ title: 'Cadastro realizado com sucesso!', description: 'Bem-vindo(a) ao sistema.' })
     login(createdUser)
-    navigate('/dashboard')
+    navigate('/dashboard', { replace: true })
   }
 
   const handleGoogleRegister = () => {
@@ -80,7 +80,7 @@ export default function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () 
         })
         toast({ title: 'Sucesso!', description: 'Sua conta foi criada via Google.' })
         login(createdUser)
-        navigate('/dashboard')
+        navigate('/dashboard', { replace: true })
       }
     }, 1500)
   }

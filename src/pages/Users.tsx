@@ -10,6 +10,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Edit, UserPlus, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { useFinance, type User } from '@/stores/FinanceContext'
@@ -23,6 +33,11 @@ export default function Users() {
     open: false,
     mode: 'add',
     user: { role: 'User', situation: 'Ativo' },
+  })
+
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; userId: string | null }>({
+    open: false,
+    userId: null,
   })
 
   const getUsageTime = (dateStr?: string) => {
@@ -55,6 +70,22 @@ export default function Users() {
       toast({ title: 'Usuário atualizado com sucesso!' })
     }
     setModal({ open: false, mode: 'add', user: { role: 'User', situation: 'Ativo' } })
+  }
+
+  const handleConfirmDelete = () => {
+    if (!deleteConfirm.userId) return
+
+    try {
+      deleteUser(deleteConfirm.userId)
+      toast({ title: 'User removed successfully' })
+    } catch (error) {
+      toast({
+        title: 'Error: Could not remove user. Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeleteConfirm({ open: false, userId: null })
+    }
   }
 
   return (
@@ -159,10 +190,7 @@ export default function Users() {
                       variant="ghost"
                       size="icon"
                       className="text-slate-400 hover:text-red-400"
-                      onClick={() => {
-                        deleteUser(user.id)
-                        toast({ title: 'Usuário removido.' })
-                      }}
+                      onClick={() => setDeleteConfirm({ open: true, userId: user.id })}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -182,6 +210,33 @@ export default function Users() {
         onChange={(u) => setModal({ ...modal, user: u })}
         onSave={handleSaveUser}
       />
+
+      <AlertDialog
+        open={deleteConfirm.open}
+        onOpenChange={(open) => !open && setDeleteConfirm({ open: false, userId: null })}
+      >
+        <AlertDialogContent className="bg-[#161925] border-slate-800 text-slate-100 sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">
+              Are you sure you want to remove this user?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-transparent border-slate-700 text-white hover:bg-slate-800 hover:text-white">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Confirm/Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

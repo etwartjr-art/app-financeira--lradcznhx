@@ -181,9 +181,23 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     setCategories((p) => [...p, ...defaultCatsFor(newUser.id)])
     return newUser
   }
+
   const updateUser = (id: string, data: Partial<User>) =>
     setUsers((p) => p.map((u) => (u.id === id ? { ...u, ...data } : u)))
-  const deleteUser = (id: string) => setUsers((p) => p.filter((u) => u.id !== id))
+
+  const deleteUser = (id: string) => {
+    setUsers((p) => p.filter((u) => u.id !== id))
+
+    // Clean up associated data for data integrity
+    setTransactions((p) => p.filter((t) => t.userId !== id))
+    setCards((p) => p.filter((c) => c.userId !== id))
+    setCategories((p) => p.filter((c) => c.userId !== id))
+
+    // Handle session data if the user being deleted is currently logged in
+    if (currentUser?.id === id) {
+      logout()
+    }
+  }
 
   const addCategory = (cat: Omit<Category, 'id' | 'userId'>) => {
     if (!currentUser) return

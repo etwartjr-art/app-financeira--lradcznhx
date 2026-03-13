@@ -46,22 +46,26 @@ export default function Transactions() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all')
 
+  const safeCategories = categories || []
   const [newTx, setNewTx] = useState<Partial<Transaction>>({
     type: 'expense',
     amount: 0,
     description: '',
-    category: categories[0]?.name || 'Outros',
+    category: safeCategories[0]?.name || 'Outros',
     origin: 'Conta Principal',
     date: new Date().toISOString().split('T')[0],
     tags: '',
   })
 
-  const ORIGINS = ['Conta Principal', 'Dinheiro', ...cards.map((c) => c.name)]
+  const ORIGINS = ['Conta Principal', 'Dinheiro', ...(cards || []).map((c) => c.name)]
 
   const handleSave = () => {
     if (!newTx.description || !newTx.amount)
       return toast({ title: 'Preencha os campos obrigatórios.', variant: 'destructive' })
-    const localDate = new Date(`${newTx.date}T12:00:00Z`).toISOString()
+    const localDate = newTx.date
+      ? new Date(`${newTx.date}T12:00:00Z`).toISOString()
+      : new Date().toISOString()
+
     if (editingTx) {
       updateTransaction(editingTx.id, { ...newTx, amount: Number(newTx.amount), date: localDate })
       setEditingTx(null)
@@ -83,7 +87,7 @@ export default function Transactions() {
       type: 'expense',
       amount: 0,
       description: '',
-      category: categories[0]?.name || 'Outros',
+      category: safeCategories[0]?.name || 'Outros',
       origin: 'Conta Principal',
       date: new Date().toISOString().split('T')[0],
       tags: '',
@@ -95,15 +99,15 @@ export default function Transactions() {
     setNewTx({ ...t, date: t.date?.split('T')[0] || '' })
   }
 
-  const filteredList = transactions.filter((t) => {
+  const filteredList = (transactions || []).filter((t) => {
     if (!t.date) return false
     const d = new Date(t.date)
     if (isNaN(d.getTime())) return false
     const matchesMonth =
-      d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear()
+      d.getMonth() === currentMonth?.getMonth() && d.getFullYear() === currentMonth?.getFullYear()
     const matchesSearch =
-      t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.category.toLowerCase().includes(searchTerm.toLowerCase())
+      (t.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (t.category || '').toLowerCase().includes(searchTerm.toLowerCase())
     const matchesFilter = filter === 'all' ? true : t.type === filter
     return matchesMonth && matchesSearch && matchesFilter
   })
@@ -195,7 +199,7 @@ export default function Transactions() {
                       className="w-2 h-2 rounded-full"
                       style={{
                         backgroundColor:
-                          categories.find((c) => c.name === t.category)?.color || '#64748b',
+                          safeCategories.find((c) => c.name === t.category)?.color || '#64748b',
                       }}
                     />
                     {t.category}
@@ -333,7 +337,7 @@ export default function Transactions() {
                     <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
                   <SelectContent className="bg-[#161925] border-slate-700 text-slate-100">
-                    {categories.map((c) => (
+                    {safeCategories.map((c) => (
                       <SelectItem key={c.id} value={c.name}>
                         {c.name}
                       </SelectItem>

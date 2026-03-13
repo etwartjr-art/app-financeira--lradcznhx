@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useMemo, useEffect } from 'react'
+import React, { createContext, useContext, useState, useMemo, useEffect, useCallback } from 'react'
 
 export type Transaction = {
   id: string
@@ -79,8 +79,17 @@ function loadState<T>(key: string, fallback: T): T {
     const parsed = JSON.parse(saved)
     if (Array.isArray(fallback) && !Array.isArray(parsed)) return fallback
     return parsed !== null ? parsed : fallback
-  } catch {
+  } catch (err) {
+    console.error(`Failed to load ${key}:`, err)
     return fallback
+  }
+}
+
+function saveState(key: string, value: any) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch (error) {
+    console.error(`Failed to save ${key}:`, error)
   }
 }
 
@@ -146,29 +155,21 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     loadState('@finance-app:transactions', []),
   )
 
-  useEffect(() => {
-    localStorage.setItem('@finance-app:users', JSON.stringify(users))
-  }, [users])
-  useEffect(() => {
-    localStorage.setItem('@finance-app:categories', JSON.stringify(categories))
-  }, [categories])
-  useEffect(() => {
-    localStorage.setItem('@finance-app:cards', JSON.stringify(cards))
-  }, [cards])
-  useEffect(() => {
-    localStorage.setItem('@finance-app:transactions', JSON.stringify(transactions))
-  }, [transactions])
+  useEffect(() => saveState('@finance-app:users', users), [users])
+  useEffect(() => saveState('@finance-app:categories', categories), [categories])
+  useEffect(() => saveState('@finance-app:cards', cards), [cards])
+  useEffect(() => saveState('@finance-app:transactions', transactions), [transactions])
 
   const userTransactions = useMemo(
-    () => transactions.filter((t) => t.userId === currentUser?.id),
+    () => (transactions || []).filter((t) => t.userId === currentUser?.id),
     [transactions, currentUser],
   )
   const userCards = useMemo(
-    () => cards.filter((c) => c.userId === currentUser?.id),
+    () => (cards || []).filter((c) => c.userId === currentUser?.id),
     [cards, currentUser],
   )
   const userCategories = useMemo(
-    () => categories.filter((c) => c.userId === currentUser?.id),
+    () => (categories || []).filter((c) => c.userId === currentUser?.id),
     [categories, currentUser],
   )
 
@@ -183,65 +184,111 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     }, 0)
   }, [userTransactions, userCards])
 
-  const login = (user: User) => {
-    localStorage.setItem('@finance-app:isLoggedIn', 'true')
-    localStorage.setItem('@finance-app:user', JSON.stringify(user))
+  const login = useCallback((user: User) => {
+    try {
+      localStorage.setItem('@finance-app:isLoggedIn', 'true')
+      localStorage.setItem('@finance-app:user', JSON.stringify(user))
+    } catch (err) {
+      console.error(err)
+    }
     setCurrentUser(user)
-  }
+  }, [])
 
-  const logout = () => {
-    localStorage.removeItem('@finance-app:isLoggedIn')
-    localStorage.removeItem('@finance-app:user')
+  const logout = useCallback(() => {
+    try {
+      localStorage.removeItem('@finance-app:isLoggedIn')
+      localStorage.removeItem('@finance-app:user')
+    } catch (err) {
+      console.error(err)
+    }
     setCurrentUser(null)
-  }
+  }, [])
 
-  const addUser = (user: Omit<User, 'id'>) => {
+  const addUser = useCallback((user: Omit<User, 'id'>) => {
     const newUser = { ...user, id: Math.random().toString() }
-    setUsers((p) => [...p, newUser])
-    setCategories((p) => [...p, ...defaultCatsFor(newUser.id)])
+    setUsers((p) => [...(p || []), newUser])
+    setCategories((p) => [...(p || []), ...defaultCatsFor(newUser.id)])
     return newUser
-  }
+  }, [])
 
-  const updateUser = (id: string, data: Partial<User>) =>
-    setUsers((p) => p.map((u) => (u.id === id ? { ...u, ...data } : u)))
+  const updateUser = useCallback((id: string, data: Partial<User>) => {
+    setUsers((p) => (p || []).map((u) => (u.id === id ? { ...u, ...data } : u)))
+  }, [])
 
-  const deleteUser = (id: string) => {
-    const userToDelete = users.find((u) => u.id === id)
-    if (userToDelete?.role === 'Admin') return // Prevent admin deletion
+  const deleteUser = useCallback(
+    (id: string) => {
+      setUsers((p) => {
+        const arr = p || []
+        const userToDelete = arr.find((u) => u.id === id)
+        if (userToDelete?.role === 'Admin') return arr
+        return arr.filter((u) => u.id !== id)
+      })
+      setTransactions((p) => (p || []).filter((t) => t.userId !== id))
+      setCards((p) => (p || []).filter((c) => c.userId !== id))
+      setCategories((p) => (p || []).filter((c) => c.userId !== id))
+      if (currentUser?.id === id) logout()
+    },
+    [currentUser, logout],
+  )
 
-    setUsers((p) => p.filter((u) => u.id !== id))
-    setTransactions((p) => p.filter((t) => t.userId !== id))
-    setCards((p) => p.filter((c) => c.userId !== id))
-    setCategories((p) => p.filter((c) => c.userId !== id))
-    if (currentUser?.id === id) logout()
-  }
+  const addCategory = useCallback(
+    (cat: Omit<Category, 'id' | 'userId'>) => {
+      if (currentUser)
+        setCategories((p) => [
+          ...(p || []),
+          { ...cat, id: Math.random().toString(), userId: currentUser.id },
+        ])
+    },
+    [currentUser],
+  )
 
-  const addCategory = (cat: Omit<Category, 'id' | 'userId'>) => {
-    if (currentUser)
-      setCategories((p) => [...p, { ...cat, id: Math.random().toString(), userId: currentUser.id }])
-  }
-  const updateCategory = (id: string, data: Partial<Category>) =>
-    setCategories((p) => p.map((c) => (c.id === id ? { ...c, ...data } : c)))
-  const deleteCategory = (id: string) => setCategories((p) => p.filter((c) => c.id !== id))
+  const updateCategory = useCallback((id: string, data: Partial<Category>) => {
+    setCategories((p) => (p || []).map((c) => (c.id === id ? { ...c, ...data } : c)))
+  }, [])
 
-  const addCard = (card: Omit<Card, 'id' | 'userId'>) => {
-    if (currentUser)
-      setCards((p) => [...p, { ...card, id: Math.random().toString(), userId: currentUser.id }])
-  }
-  const updateCard = (id: string, data: Partial<Card>) =>
-    setCards((p) => p.map((c) => (c.id === id ? { ...c, ...data } : c)))
-  const deleteCard = (id: string) => setCards((p) => p.filter((c) => c.id !== id))
+  const deleteCategory = useCallback((id: string) => {
+    setCategories((p) => (p || []).filter((c) => c.id !== id))
+  }, [])
 
-  const addTransaction = (tx: Omit<Transaction, 'id' | 'userId'>) => {
-    if (currentUser)
-      setTransactions((p) => [
-        { ...tx, id: Math.random().toString(), userId: currentUser.id },
-        ...p,
-      ])
-  }
-  const updateTransaction = (id: string, data: Partial<Transaction>) =>
-    setTransactions((p) => p.map((t) => (t.id === id ? ({ ...t, ...data } as Transaction) : t)))
-  const deleteTransaction = (id: string) => setTransactions((p) => p.filter((t) => t.id !== id))
+  const addCard = useCallback(
+    (card: Omit<Card, 'id' | 'userId'>) => {
+      if (currentUser)
+        setCards((p) => [
+          ...(p || []),
+          { ...card, id: Math.random().toString(), userId: currentUser.id },
+        ])
+    },
+    [currentUser],
+  )
+
+  const updateCard = useCallback((id: string, data: Partial<Card>) => {
+    setCards((p) => (p || []).map((c) => (c.id === id ? { ...c, ...data } : c)))
+  }, [])
+
+  const deleteCard = useCallback((id: string) => {
+    setCards((p) => (p || []).filter((c) => c.id !== id))
+  }, [])
+
+  const addTransaction = useCallback(
+    (tx: Omit<Transaction, 'id' | 'userId'>) => {
+      if (currentUser)
+        setTransactions((p) => [
+          { ...tx, id: Math.random().toString(), userId: currentUser.id },
+          ...(p || []),
+        ])
+    },
+    [currentUser],
+  )
+
+  const updateTransaction = useCallback((id: string, data: Partial<Transaction>) => {
+    setTransactions((p) =>
+      (p || []).map((t) => (t.id === id ? ({ ...t, ...data } as Transaction) : t)),
+    )
+  }, [])
+
+  const deleteTransaction = useCallback((id: string) => {
+    setTransactions((p) => (p || []).filter((t) => t.id !== id))
+  }, [])
 
   const value = useMemo(
     () => ({
@@ -251,7 +298,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       transactions: userTransactions,
       cards: userCards,
       categories: userCategories,
-      users,
+      users: users || [],
       currentMonth,
       setCurrentMonth,
       login,
@@ -278,6 +325,21 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       userCategories,
       users,
       currentMonth,
+      setCurrentMonth,
+      login,
+      logout,
+      addTransaction,
+      updateTransaction,
+      deleteTransaction,
+      addCard,
+      updateCard,
+      deleteCard,
+      addCategory,
+      updateCategory,
+      deleteCategory,
+      addUser,
+      updateUser,
+      deleteUser,
     ],
   )
 

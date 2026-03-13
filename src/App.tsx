@@ -16,13 +16,16 @@ import AnnualReport from '@/pages/AnnualReport'
 import NotFound from '@/pages/NotFound'
 import logoImg from '@/assets/financas-pessoal-etw-5d9f2.png'
 
-class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; errorMsg: string }
+> {
   constructor(props: { children: React.ReactNode }) {
     super(props)
-    this.state = { hasError: false }
+    this.state = { hasError: false, errorMsg: '' }
   }
-  static getDerivedStateFromError() {
-    return { hasError: true }
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, errorMsg: error?.message || 'Ocorreu um erro interno.' }
   }
   componentDidCatch(error: any, errorInfo: any) {
     console.error('App UI Error:', error, errorInfo)
@@ -33,16 +36,29 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
         <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#0b0e14] text-slate-50 p-4">
           <img src={logoImg} alt="Logo" className="mb-6 h-16 w-16 object-contain opacity-50" />
           <h2 className="text-xl font-bold text-red-500 mb-2">Ops! Ocorreu um erro.</h2>
-          <p className="text-slate-400 text-sm mb-6 text-center max-w-sm">
-            Tivemos um problema ao carregar esta tela. Clique no botão abaixo para recarregar o
-            aplicativo.
+          <p className="text-slate-400 text-sm mb-2 text-center max-w-sm">
+            Tivemos um problema ao carregar esta tela.
           </p>
-          <button
-            onClick={() => window.location.replace('/dashboard')}
-            className="px-6 py-2.5 bg-[#0f766e] hover:bg-[#0f766e]/90 transition-colors rounded-lg text-sm font-medium"
-          >
-            Recarregar Aplicativo
-          </button>
+          <p className="text-slate-500 text-xs mb-8 text-center max-w-sm bg-slate-800/50 p-3 rounded border border-slate-700 font-mono break-all">
+            {this.state.errorMsg}
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => window.location.replace('/dashboard')}
+              className="px-6 py-2.5 bg-[#0f766e] hover:bg-[#0f766e]/90 transition-colors rounded-lg text-sm font-medium text-white"
+            >
+              Recarregar Página
+            </button>
+            <button
+              onClick={() => {
+                localStorage.clear()
+                window.location.replace('/')
+              }}
+              className="px-6 py-2.5 bg-transparent border border-red-500/50 text-red-500 hover:bg-red-500/10 transition-colors rounded-lg text-sm font-medium"
+            >
+              Limpar Dados e Sair
+            </button>
+          </div>
         </div>
       )
     }
@@ -51,8 +67,8 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 }
 
 const ProtectedLayout = () => {
-  const { isLoggedIn } = useFinance()
-  if (!isLoggedIn) return <Navigate to="/" replace />
+  const { isLoggedIn, currentUser } = useFinance()
+  if (!isLoggedIn || !currentUser) return <Navigate to="/" replace />
   return <Layout />
 }
 

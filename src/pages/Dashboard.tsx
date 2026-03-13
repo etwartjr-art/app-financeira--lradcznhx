@@ -21,12 +21,13 @@ export default function Dashboard() {
 
   const currentMonthTx = useMemo(
     () =>
-      transactions.filter((t) => {
+      (transactions || []).filter((t) => {
         if (!t.date) return false
         const d = new Date(t.date)
         if (isNaN(d.getTime())) return false
         return (
-          d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear()
+          d.getMonth() === currentMonth?.getMonth() &&
+          d.getFullYear() === currentMonth?.getFullYear()
         )
       }),
     [transactions, currentMonth],
@@ -41,16 +42,17 @@ export default function Dashboard() {
   const economia = receitas - despesas
 
   const gerais = currentMonthTx
-    .filter((t) => t.type === 'expense' && !cards.some((c) => c.name === t.origin))
+    .filter((t) => t.type === 'expense' && !(cards || []).some((c) => c.name === t.origin))
     .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
   const despesasCartoes = currentMonthTx
-    .filter((t) => t.type === 'expense' && cards.some((c) => c.name === t.origin))
+    .filter((t) => t.type === 'expense' && (cards || []).some((c) => c.name === t.origin))
     .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
   const totalConsolidado = gerais + despesasCartoes
   const percGerais = totalConsolidado ? (gerais / totalConsolidado) * 100 : 0
   const percCartoes = totalConsolidado ? (despesasCartoes / totalConsolidado) * 100 : 0
 
   const cashFlowData = useMemo(() => {
+    if (!currentMonth) return []
     const daysInMonth = new Date(
       currentMonth.getFullYear(),
       currentMonth.getMonth() + 1,
@@ -74,7 +76,7 @@ export default function Dashboard() {
 
   const catData = useMemo(
     () =>
-      categories
+      (categories || [])
         .map((c) => ({
           name: c.name,
           color: c.color,
@@ -229,7 +231,7 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col min-h-[200px] gap-4">
-            {cards.length === 0 ? (
+            {!(cards || []).length ? (
               <div className="flex flex-col items-center justify-center h-full min-h-[160px] text-center space-y-3">
                 <div className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center">
                   <CreditCard className="w-5 h-5 text-slate-400" />
@@ -247,7 +249,7 @@ export default function Dashboard() {
                 </Button>
               </div>
             ) : (
-              cards.map((c) => {
+              (cards || []).map((c) => {
                 const used = currentMonthTx
                   .filter((t) => t.type === 'expense' && t.origin === c.name)
                   .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,7 +9,6 @@ import { GoogleIcon } from '@/components/icons/GoogleIcon'
 
 export default function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => void }) {
   const { login, users } = useFinance()
-  const navigate = useNavigate()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -22,16 +20,17 @@ export default function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: 
       return toast({ title: 'Preencha todos os campos', variant: 'destructive' })
     }
 
-    const user = users.find(
+    const user = (users || []).find(
       (u) => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password,
     )
 
     if (user) {
       toast({ title: `Bem-vindo(a), ${user.name}!`, description: 'Login realizado com sucesso.' })
       login(user)
-      navigate('/dashboard', { replace: true })
     } else {
-      const userExists = users.some((u) => u.email.toLowerCase() === email.trim().toLowerCase())
+      const userExists = (users || []).some(
+        (u) => u.email.toLowerCase() === email.trim().toLowerCase(),
+      )
       if (userExists) {
         toast({
           title: 'Credenciais inválidas',
@@ -53,7 +52,9 @@ export default function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: 
     setTimeout(() => {
       setIsLoading(false)
       const mockedOAuthEmail = email.trim() || 'Etwartjr@gmail.com'
-      const foundUser = users.find((u) => u.email.toLowerCase() === mockedOAuthEmail.toLowerCase())
+      const foundUser = (users || []).find(
+        (u) => u.email.toLowerCase() === mockedOAuthEmail.toLowerCase(),
+      )
 
       if (foundUser) {
         toast({
@@ -61,7 +62,6 @@ export default function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: 
           description: 'Acesso via Google concluído.',
         })
         login(foundUser)
-        navigate('/dashboard', { replace: true })
       } else {
         toast({
           title: 'Conta não encontrada',

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,7 +9,6 @@ import { GoogleIcon } from '@/components/icons/GoogleIcon'
 
 export default function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
   const { users, addUser, login } = useFinance()
-  const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
 
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' })
@@ -35,7 +33,7 @@ export default function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () 
       return toast({ title: 'As senhas não coincidem', variant: 'destructive' })
     }
 
-    if (users.some((u) => u.email.toLowerCase() === email.trim().toLowerCase())) {
+    if ((users || []).some((u) => u.email.toLowerCase() === email.trim().toLowerCase())) {
       return toast({
         title: 'E-mail já cadastrado',
         description: 'Faça login na sua conta.',
@@ -54,7 +52,6 @@ export default function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () 
 
     toast({ title: 'Cadastro realizado com sucesso!', description: 'Bem-vindo(a) ao sistema.' })
     login(createdUser)
-    navigate('/dashboard', { replace: true })
   }
 
   const handleGoogleRegister = () => {
@@ -63,7 +60,7 @@ export default function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () 
       setIsLoading(false)
       const mockEmail = form.email.trim() || 'novo_usuario@gmail.com'
 
-      if (users.some((u) => u.email.toLowerCase() === mockEmail.toLowerCase())) {
+      if ((users || []).some((u) => u.email.toLowerCase() === mockEmail.toLowerCase())) {
         toast({
           title: 'Conta já existente',
           description: 'Este e-mail já está cadastrado. Por favor, faça login.',
@@ -80,7 +77,6 @@ export default function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () 
         })
         toast({ title: 'Sucesso!', description: 'Sua conta foi criada via Google.' })
         login(createdUser)
-        navigate('/dashboard', { replace: true })
       }
     }, 1500)
   }

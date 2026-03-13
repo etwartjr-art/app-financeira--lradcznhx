@@ -25,6 +25,7 @@ import { useFinance, type Card as CardType } from '@/stores/FinanceContext'
 import { format } from 'date-fns'
 import { toast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import { MonthSelector } from '@/components/MonthSelector'
 
 export default function Cards() {
   const { cards, addCard, updateCard, deleteCard, transactions, currentMonth, addTransaction } =
@@ -103,81 +104,84 @@ export default function Cards() {
           <h1 className="text-2xl font-bold tracking-tight text-white">Cartões de Crédito</h1>
           <p className="text-slate-400">Gerencie seus cartões e faturas</p>
         </div>
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-[#0f766e] hover:bg-[#0f766e]/90 text-white rounded-lg">
-              <Plus className="mr-2 h-4 w-4" /> Novo Cartão
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-[#161925] border-slate-800 text-slate-100 sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-white">Novo Cartão</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Instituição</Label>
-                <Input
-                  className="bg-[#0b0e14] border-slate-700"
-                  value={newCard.name}
-                  onChange={(e) => setNewCard({ ...newCard, name: e.target.value })}
-                  placeholder="Ex: Itau"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Últimos 4 dígitos</Label>
-                  <Input
-                    className="bg-[#0b0e14] border-slate-700"
-                    value={newCard.last4}
-                    onChange={(e) => setNewCard({ ...newCard, last4: e.target.value })}
-                    maxLength={4}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Limite (R$)</Label>
-                  <Input
-                    type="number"
-                    className="bg-[#0b0e14] border-slate-700"
-                    value={newCard.limit}
-                    onChange={(e) => setNewCard({ ...newCard, limit: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Data Fechamento</Label>
-                  <Input
-                    type="date"
-                    className="bg-[#0b0e14] border-slate-700"
-                    value={newCard.closingDate}
-                    onChange={(e) => setNewCard({ ...newCard, closingDate: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Data Vencimento</Label>
-                  <Input
-                    type="date"
-                    className="bg-[#0b0e14] border-slate-700"
-                    value={newCard.dueDate}
-                    onChange={(e) => setNewCard({ ...newCard, dueDate: e.target.value })}
-                  />
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsAddOpen(false)}
-                className="bg-transparent border-slate-700 text-white hover:bg-slate-800"
-              >
-                Cancelar
+        <div className="flex items-center gap-3">
+          <MonthSelector />
+          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-[#0f766e] hover:bg-[#0f766e]/90 text-white rounded-lg">
+                <Plus className="mr-2 h-4 w-4" /> Novo Cartão
               </Button>
-              <Button className="bg-[#0f766e] text-white" onClick={handleSaveCard}>
-                Salvar
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="bg-[#161925] border-slate-800 text-slate-100 sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="text-white">Novo Cartão</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Instituição</Label>
+                  <Input
+                    className="bg-[#0b0e14] border-slate-700"
+                    value={newCard.name}
+                    onChange={(e) => setNewCard({ ...newCard, name: e.target.value })}
+                    placeholder="Ex: Itau"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Últimos 4 dígitos</Label>
+                    <Input
+                      className="bg-[#0b0e14] border-slate-700"
+                      value={newCard.last4}
+                      onChange={(e) => setNewCard({ ...newCard, last4: e.target.value })}
+                      maxLength={4}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Limite (R$)</Label>
+                    <Input
+                      type="number"
+                      className="bg-[#0b0e14] border-slate-700"
+                      value={newCard.limit}
+                      onChange={(e) => setNewCard({ ...newCard, limit: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Data Fechamento</Label>
+                    <Input
+                      type="date"
+                      className="bg-[#0b0e14] border-slate-700"
+                      value={newCard.closingDate}
+                      onChange={(e) => setNewCard({ ...newCard, closingDate: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Data Vencimento</Label>
+                    <Input
+                      type="date"
+                      className="bg-[#0b0e14] border-slate-700"
+                      value={newCard.dueDate}
+                      onChange={(e) => setNewCard({ ...newCard, dueDate: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsAddOpen(false)}
+                  className="bg-transparent border-slate-700 text-white hover:bg-slate-800"
+                >
+                  Cancelar
+                </Button>
+                <Button className="bg-[#0f766e] text-white" onClick={handleSaveCard}>
+                  Salvar
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -191,7 +195,8 @@ export default function Cards() {
                 new Date(t.date).getFullYear() === currentMonth.getFullYear(),
             )
             .reduce((acc, t) => acc + t.amount, 0)
-          const activeUsed = usedThisMonth > 0 ? usedThisMonth : card.used
+
+          const activeUsed = usedThisMonth
           const perc = Math.min((activeUsed / card.limit) * 100, 100)
           const available = Math.max(0, card.limit - activeUsed)
 
@@ -230,7 +235,7 @@ export default function Cards() {
 
                 <div className="space-y-2 mt-4 border-t border-slate-800 pt-5">
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate-400">Utilizado</span>
+                    <span className="text-slate-400">Fatura do Mês</span>
                     <span className="font-bold text-white">
                       R$ {activeUsed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </span>
@@ -253,7 +258,7 @@ export default function Cards() {
 
                 <div className="bg-[#0b0e14] rounded-xl p-3 flex flex-col mt-2 border border-slate-800/50">
                   <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
-                    Disponível
+                    Disponível no Cartão
                   </span>
                   <span className="text-xl font-bold text-emerald-500">
                     R$ {available.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -316,28 +321,6 @@ export default function Cards() {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Data Fechamento</Label>
-                  <Input
-                    type="date"
-                    className="bg-[#0b0e14] border-slate-700"
-                    value={editingCard.closingDate}
-                    onChange={(e) =>
-                      setEditingCard({ ...editingCard, closingDate: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Data Vencimento</Label>
-                  <Input
-                    type="date"
-                    className="bg-[#0b0e14] border-slate-700"
-                    value={editingCard.dueDate}
-                    onChange={(e) => setEditingCard({ ...editingCard, dueDate: e.target.value })}
-                  />
-                </div>
-              </div>
             </div>
           )}
           <DialogFooter>
@@ -358,7 +341,7 @@ export default function Cards() {
       <Dialog open={!!expenseCard} onOpenChange={(o) => !o && setExpenseCard(null)}>
         <DialogContent className="bg-[#161925] border-slate-800 text-slate-100 sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-white">Adicionar Despesa: {expenseCard?.name}</DialogTitle>
+            <DialogTitle className="text-white">Despesa: {expenseCard?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -388,15 +371,6 @@ export default function Cards() {
                   onChange={(e) => setNewExp({ ...newExp, date: e.target.value })}
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Tags</Label>
-              <Input
-                className="bg-[#0b0e14] border-slate-700"
-                placeholder="Ex: ifood, almoço"
-                value={newExp.tags}
-                onChange={(e) => setNewExp({ ...newExp, tags: e.target.value })}
-              />
             </div>
           </div>
           <DialogFooter>

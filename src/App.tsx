@@ -12,6 +12,7 @@ import Transactions from '@/pages/Transactions'
 import Categories from '@/pages/Categories'
 import Import from '@/pages/Import'
 import Users from '@/pages/Users'
+import AnnualReport from '@/pages/AnnualReport'
 import NotFound from '@/pages/NotFound'
 
 const ProtectedLayout = () => {
@@ -33,6 +34,7 @@ function AppContent() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/cards" element={<Cards />} />
+            <Route path="/annual-report" element={<AnnualReport />} />
             <Route path="/categories" element={<Categories />} />
             <Route path="/import" element={<Import />} />
             <Route path="/users" element={<Users />} />

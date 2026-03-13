@@ -1,10 +1,12 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
-import { Wallet, TrendingUp, TrendingDown, PiggyBank, CreditCard } from 'lucide-react'
+import { Wallet, TrendingUp, TrendingDown, PiggyBank, CreditCard, BarChart3 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { useFinance } from '@/stores/FinanceContext'
 import { CashFlowChart, CategoryExpensesChart } from '@/components/dashboard/Charts'
+import { MonthSelector } from '@/components/MonthSelector'
 
 export default function Dashboard() {
   const { balance, transactions, cards, categories, currentMonth } = useFinance()
@@ -75,9 +77,24 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-8 animate-fade-in max-w-7xl mx-auto">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-white">Dashboard</h1>
-        <p className="text-slate-400 text-sm">Visão geral das suas finanças</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight text-white">Dashboard</h1>
+          <p className="text-slate-400 text-sm">Visão geral das suas finanças</p>
+        </div>
+        <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+          <MonthSelector />
+          <Button
+            asChild
+            variant="outline"
+            className="bg-[#161925] border-slate-800 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-400 hidden sm:flex"
+          >
+            <Link to="/annual-report">
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Relatório Anual
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -206,7 +223,7 @@ export default function Dashboard() {
                     <div className="flex justify-between text-sm items-end">
                       <span className="text-slate-300 font-medium uppercase">{c.name}</span>
                       <span className="text-white font-bold tracking-tight">
-                        R$ {used.toLocaleString('pt-BR')}{' '}
+                        R$ {used.toLocaleString('pt-BR')}
                         <span className="text-xs font-normal text-slate-500 ml-1">
                           / R$ {c.limit.toLocaleString('pt-BR')}
                         </span>
@@ -228,7 +245,7 @@ export default function Dashboard() {
 
       <Card className="bg-[#161925] border-slate-800 shadow-sm mt-2">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-base text-white font-semibold">Transações Recentes</CardTitle>
+          <CardTitle className="text-base text-white font-semibold">Transações do Mês</CardTitle>
           <Link
             to="/transactions"
             className="text-sm font-medium text-emerald-500 hover:text-emerald-400"
@@ -238,7 +255,7 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {transactions.slice(0, 5).map((t) => (
+            {currentMonthTx.slice(0, 5).map((t) => (
               <div
                 key={t.id}
                 className="flex justify-between items-center py-2 border-b border-slate-800/50 last:border-0"
@@ -257,6 +274,11 @@ export default function Dashboard() {
                 </div>
               </div>
             ))}
+            {currentMonthTx.length === 0 && (
+              <div className="text-center py-4 text-sm text-slate-500">
+                Nenhuma transação neste mês.
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

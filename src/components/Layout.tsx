@@ -8,6 +8,7 @@ import {
   Menu,
   Upload,
   Tags,
+  BarChart3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -19,6 +20,7 @@ const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/transactions', label: 'Transações', icon: ArrowRightLeft },
   { href: '/cards', label: 'Cartões', icon: CreditCard },
+  { href: '/annual-report', label: 'Relatório Anual', icon: BarChart3 },
   { href: '/import', label: 'Importar', icon: Upload },
 ]
 
@@ -72,7 +74,7 @@ export default function Layout() {
             </span>
           </span>
         </div>
-        <nav className="flex-1 space-y-1 p-4">
+        <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
           <NavLinks items={NAV_ITEMS} />
           <div className="mt-8 mb-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
             Admin
@@ -121,7 +123,7 @@ export default function Layout() {
                 </SheetTitle>
               </div>
             </SheetHeader>
-            <nav className="flex-1 space-y-2 p-4">
+            <nav className="flex-1 space-y-2 p-4 overflow-y-auto">
               <NavLinks items={NAV_ITEMS} />
               <div className="mt-6 mb-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Admin
@@ -132,7 +134,7 @@ export default function Layout() {
         </Sheet>
       </header>
 
-      <main className="flex-1 pb-16 md:pb-0 relative bg-[#0b0e14]">
+      <main className="flex-1 pb-16 md:pb-0 relative bg-[#0b0e14] overflow-y-auto">
         <Outlet />
       </main>
 

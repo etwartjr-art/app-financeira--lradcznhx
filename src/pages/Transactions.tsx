@@ -29,10 +29,18 @@ import {
 import { Search, Edit2, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from '@/hooks/use-toast'
+import { MonthSelector } from '@/components/MonthSelector'
 
 export default function Transactions() {
-  const { transactions, addTransaction, updateTransaction, deleteTransaction, cards, categories } =
-    useFinance()
+  const {
+    transactions,
+    addTransaction,
+    updateTransaction,
+    deleteTransaction,
+    cards,
+    categories,
+    currentMonth,
+  } = useFinance()
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -88,11 +96,14 @@ export default function Transactions() {
   }
 
   const filteredList = transactions.filter((t) => {
+    const d = new Date(t.date)
+    const matchesMonth =
+      d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear()
     const matchesSearch =
       t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.category.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesFilter = filter === 'all' ? true : t.type === filter
-    return matchesSearch && matchesFilter
+    return matchesMonth && matchesSearch && matchesFilter
   })
 
   return (
@@ -100,14 +111,17 @@ export default function Transactions() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white">Transações</h1>
-          <p className="text-slate-400">Gerencie suas receitas e despesas</p>
+          <p className="text-slate-400">Gerencie suas receitas e despesas do mês</p>
         </div>
-        <Button
-          className="bg-[#0f766e] hover:bg-[#0f766e]/90 text-white rounded-lg px-6"
-          onClick={() => setIsAddOpen(true)}
-        >
-          + Nova Transação
-        </Button>
+        <div className="flex items-center gap-3">
+          <MonthSelector />
+          <Button
+            className="bg-[#0f766e] hover:bg-[#0f766e]/90 text-white rounded-lg px-6"
+            onClick={() => setIsAddOpen(true)}
+          >
+            + Nova
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
@@ -138,7 +152,7 @@ export default function Transactions() {
 
       <div className="rounded-xl border border-slate-800 bg-[#161925] overflow-hidden shadow-sm">
         <Table>
-          <TableHeader className="bg-slate-900/50">
+          <TableHeader className="bg-[#0b0e14]">
             <TableRow className="border-slate-800 hover:bg-transparent">
               <TableHead className="text-slate-400 font-semibold tracking-wider text-xs">
                 DESCRIÇÃO
@@ -217,6 +231,13 @@ export default function Transactions() {
                 </TableCell>
               </TableRow>
             ))}
+            {filteredList.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                  Nenhuma transação encontrada neste mês.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>

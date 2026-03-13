@@ -185,97 +185,116 @@ export default function Cards() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {cards.map((card) => {
-          const usedThisMonth = transactions
-            .filter(
-              (t) =>
-                t.origin === card.name &&
-                t.type === 'expense' &&
-                new Date(t.date).getMonth() === currentMonth.getMonth() &&
-                new Date(t.date).getFullYear() === currentMonth.getFullYear(),
-            )
-            .reduce((acc, t) => acc + t.amount, 0)
-
-          const activeUsed = usedThisMonth
-          const perc = Math.min((activeUsed / card.limit) * 100, 100)
-          const available = Math.max(0, card.limit - activeUsed)
-
-          return (
-            <div
-              key={card.id}
-              className="flex flex-col rounded-2xl bg-[#161925] border border-slate-800 text-slate-100 shadow-lg relative overflow-hidden transition-transform hover:-translate-y-1"
+        {cards.length === 0 ? (
+          <div className="col-span-full flex flex-col items-center justify-center py-16 px-4 text-center bg-[#161925] border border-slate-800 rounded-2xl border-dashed">
+            <div className="w-16 h-16 rounded-full bg-[#0f766e]/10 flex items-center justify-center mb-4">
+              <CardIcon className="w-8 h-8 text-[#0f766e]" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Nenhum cartão cadastrado</h3>
+            <p className="text-slate-400 max-w-sm mb-6">
+              Você ainda não adicionou nenhum cartão de crédito. Cadastre seu primeiro cartão para
+              começar a controlar seus limites e faturas.
+            </p>
+            <Button
+              onClick={() => setIsAddOpen(true)}
+              className="bg-[#0f766e] hover:bg-[#0f766e]/90 text-white"
             >
-              <div className="p-5 flex flex-col gap-4">
-                <div className="flex justify-between items-start">
-                  <CardIcon className="w-8 h-8 text-slate-400" />
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setEditingCard(card)}
-                      className="hover:bg-slate-800 p-1 rounded"
-                    >
-                      <Edit2 className="w-4 h-4 text-slate-400" />
-                    </button>
-                    <button
-                      onClick={() => deleteCard(card.id)}
-                      className="hover:bg-red-500/20 p-1 rounded"
-                    >
-                      <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-400" />
-                    </button>
-                    <Badge className="bg-amber-500/10 text-amber-500 border-none font-medium px-2 py-0.5">
-                      {card.status}
-                    </Badge>
-                  </div>
-                </div>
-                <div className="space-y-1 mt-2">
-                  <p className="text-lg tracking-widest font-mono text-slate-300 opacity-80">
-                    •••• •••• •••• {card.last4}
-                  </p>
-                  <p className="text-sm font-semibold uppercase text-slate-400">{card.name}</p>
-                </div>
+              <Plus className="w-4 h-4 mr-2" /> Novo Cartão
+            </Button>
+          </div>
+        ) : (
+          cards.map((card) => {
+            const usedThisMonth = transactions
+              .filter(
+                (t) =>
+                  t.origin === card.name &&
+                  t.type === 'expense' &&
+                  new Date(t.date).getMonth() === currentMonth.getMonth() &&
+                  new Date(t.date).getFullYear() === currentMonth.getFullYear(),
+              )
+              .reduce((acc, t) => acc + t.amount, 0)
 
-                <div className="space-y-2 mt-4 border-t border-slate-800 pt-5">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-400">Fatura do Mês</span>
-                    <span className="font-bold text-white">
-                      R$ {activeUsed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            const activeUsed = usedThisMonth
+            const perc = Math.min((activeUsed / card.limit) * 100, 100)
+            const available = Math.max(0, card.limit - activeUsed)
+
+            return (
+              <div
+                key={card.id}
+                className="flex flex-col rounded-2xl bg-[#161925] border border-slate-800 text-slate-100 shadow-lg relative overflow-hidden transition-transform hover:-translate-y-1"
+              >
+                <div className="p-5 flex flex-col gap-4">
+                  <div className="flex justify-between items-start">
+                    <CardIcon className="w-8 h-8 text-slate-400" />
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setEditingCard(card)}
+                        className="hover:bg-slate-800 p-1 rounded"
+                      >
+                        <Edit2 className="w-4 h-4 text-slate-400" />
+                      </button>
+                      <button
+                        onClick={() => deleteCard(card.id)}
+                        className="hover:bg-red-500/20 p-1 rounded"
+                      >
+                        <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-400" />
+                      </button>
+                      <Badge className="bg-amber-500/10 text-amber-500 border-none font-medium px-2 py-0.5">
+                        {card.status}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="space-y-1 mt-2">
+                    <p className="text-lg tracking-widest font-mono text-slate-300 opacity-80">
+                      •••• •••• •••• {card.last4}
+                    </p>
+                    <p className="text-sm font-semibold uppercase text-slate-400">{card.name}</p>
+                  </div>
+
+                  <div className="space-y-2 mt-4 border-t border-slate-800 pt-5">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-400">Fatura do Mês</span>
+                      <span className="font-bold text-white">
+                        R$ {activeUsed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-[10px] text-slate-500 font-medium uppercase tracking-wider">
+                      <span>{perc.toFixed(0)}% usado</span>
+                      <span>Limite: R$ {card.limit.toLocaleString('pt-BR')}</span>
+                    </div>
+                    <Progress value={perc} className="h-1.5 bg-slate-800 [&>div]:bg-amber-500" />
+                  </div>
+
+                  <div className="flex justify-between text-xs text-slate-500 mt-2 font-medium">
+                    <span className="flex items-center">
+                      <CalendarDays className="w-3 h-3 mr-1" /> Fecha: {card.closingDate}
+                    </span>
+                    <span className="flex items-center">
+                      <CalendarDays className="w-3 h-3 mr-1" /> Vence: {card.dueDate}
                     </span>
                   </div>
-                  <div className="flex justify-between text-[10px] text-slate-500 font-medium uppercase tracking-wider">
-                    <span>{perc.toFixed(0)}% usado</span>
-                    <span>Limite: R$ {card.limit.toLocaleString('pt-BR')}</span>
+
+                  <div className="bg-[#0b0e14] rounded-xl p-3 flex flex-col mt-2 border border-slate-800/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
+                      Disponível no Cartão
+                    </span>
+                    <span className="text-xl font-bold text-emerald-500">
+                      R$ {available.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
                   </div>
-                  <Progress value={perc} className="h-1.5 bg-slate-800 [&>div]:bg-amber-500" />
-                </div>
 
-                <div className="flex justify-between text-xs text-slate-500 mt-2 font-medium">
-                  <span className="flex items-center">
-                    <CalendarDays className="w-3 h-3 mr-1" /> Fecha: {card.closingDate}
-                  </span>
-                  <span className="flex items-center">
-                    <CalendarDays className="w-3 h-3 mr-1" /> Vence: {card.dueDate}
-                  </span>
+                  <Button
+                    variant="outline"
+                    className="w-full mt-2 bg-transparent border-slate-700 hover:bg-slate-800 text-slate-300 transition-colors"
+                    onClick={() => setExpenseCard(card)}
+                  >
+                    Adicionar Despesa
+                  </Button>
                 </div>
-
-                <div className="bg-[#0b0e14] rounded-xl p-3 flex flex-col mt-2 border border-slate-800/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
-                    Disponível no Cartão
-                  </span>
-                  <span className="text-xl font-bold text-emerald-500">
-                    R$ {available.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-
-                <Button
-                  variant="outline"
-                  className="w-full mt-2 bg-transparent border-slate-700 hover:bg-slate-800 text-slate-300 transition-colors"
-                  onClick={() => setExpenseCard(card)}
-                >
-                  Adicionar Despesa
-                </Button>
               </div>
-            </div>
-          )
-        })}
+            )
+          })
+        )}
       </div>
 
       <Dialog open={!!editingCard} onOpenChange={(o) => !o && setEditingCard(null)}>

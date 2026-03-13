@@ -11,12 +11,16 @@ import {
   Cell,
 } from 'recharts'
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart'
+import { LineChart, PieChart as PieChartIcon } from 'lucide-react'
 
 export function CashFlowChart({ data }: { data: any[] }) {
   if (data.length === 0 || data.every((d) => d.Receitas === 0 && d.Despesas === 0)) {
     return (
-      <div className="flex items-center justify-center h-full text-slate-500 text-sm">
-        Sem dados de fluxo neste mês.
+      <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-3 min-h-[200px]">
+        <div className="w-12 h-12 rounded-full bg-slate-800/50 flex items-center justify-center">
+          <LineChart className="w-6 h-6 text-slate-400" />
+        </div>
+        <p className="text-sm font-medium text-slate-400">Sem dados de fluxo neste mês.</p>
       </div>
     )
   }
@@ -68,8 +72,11 @@ export function CashFlowChart({ data }: { data: any[] }) {
 export function CategoryExpensesChart({ data }: { data: any[] }) {
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-slate-500 text-sm">
-        Nenhuma despesa registrada.
+      <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-3 min-h-[200px]">
+        <div className="w-12 h-12 rounded-full bg-slate-800/50 flex items-center justify-center">
+          <PieChartIcon className="w-6 h-6 text-slate-400" />
+        </div>
+        <p className="text-sm font-medium text-slate-400">Nenhuma despesa registrada.</p>
       </div>
     )
   }

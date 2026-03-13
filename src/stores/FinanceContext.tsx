@@ -72,8 +72,6 @@ type FinanceContextType = {
 
 const FinanceContext = createContext<FinanceContextType | null>(null)
 
-const dStr = (daysBack: number) => new Date(Date.now() - daysBack * 86400000).toISOString()
-
 export const FinanceProvider = ({ children }: { children: React.ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('@finance-app:user')
@@ -136,65 +134,11 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     ...defaultCatsFor('3'),
   ])
 
-  const [cards, setCards] = useState<Card[]>([
-    {
-      id: '1',
-      userId: '1',
-      name: 'itau',
-      type: 'Mastercard',
-      last4: '5119',
-      color: '#ff7800',
-      limit: 5000,
-      used: 0,
-      closingDate: '2026-03-20',
-      dueDate: '2026-03-27',
-      status: 'Aberta',
-    },
-  ])
+  // Removed all hardcoded test data to ensure clean slate per User Story
+  const [cards, setCards] = useState<Card[]>([])
+  const [transactions, setTransactions] = useState<Transaction[]>([])
 
-  const [transactions, setTransactions] = useState<Transaction[]>([
-    {
-      id: 't0',
-      userId: '1',
-      amount: 7700,
-      description: 'Saldo Inicial',
-      type: 'income',
-      date: dStr(30),
-      origin: 'Conta Principal',
-      category: 'Outros',
-    },
-    {
-      id: 't1',
-      userId: '1',
-      amount: 5000,
-      description: 'Salário',
-      type: 'income',
-      date: dStr(5),
-      origin: 'Conta Principal',
-      category: 'Salário',
-    },
-    {
-      id: 't2',
-      userId: '1',
-      amount: 250.5,
-      description: 'Supermercado',
-      type: 'expense',
-      date: dStr(2),
-      origin: 'itau',
-      category: 'Alimentação',
-    },
-    {
-      id: 't3',
-      userId: '1',
-      amount: 80,
-      description: 'Combustível',
-      type: 'expense',
-      date: dStr(1),
-      origin: 'itau',
-      category: 'Transporte',
-    },
-  ])
-
+  // Strict multi-tenancy isolation
   const userTransactions = useMemo(
     () => transactions.filter((t) => t.userId === currentUser?.id),
     [transactions, currentUser],

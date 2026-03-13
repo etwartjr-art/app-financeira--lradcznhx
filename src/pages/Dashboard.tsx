@@ -1,7 +1,15 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
-import { Wallet, TrendingUp, TrendingDown, PiggyBank, CreditCard, BarChart3 } from 'lucide-react'
+import {
+  Wallet,
+  TrendingUp,
+  TrendingDown,
+  PiggyBank,
+  CreditCard,
+  BarChart3,
+  Receipt,
+} from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useFinance } from '@/stores/FinanceContext'
@@ -212,7 +220,22 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="flex flex-col min-h-[200px] gap-4">
             {cards.length === 0 ? (
-              <div className="text-slate-500 text-sm m-auto">Nenhum cartão.</div>
+              <div className="flex flex-col items-center justify-center h-full min-h-[160px] text-center space-y-3">
+                <div className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center">
+                  <CreditCard className="w-5 h-5 text-slate-400" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-slate-300">Nenhum cartão</p>
+                  <p className="text-xs text-slate-500">Adicione um cartão para ver as despesas.</p>
+                </div>
+                <Button
+                  asChild
+                  variant="link"
+                  className="text-[#0f766e] hover:text-[#0f766e]/80 h-auto p-0"
+                >
+                  <Link to="/cards">Cadastrar cartão</Link>
+                </Button>
+              </div>
             ) : (
               cards.map((c) => {
                 const used = currentMonthTx
@@ -246,38 +269,54 @@ export default function Dashboard() {
       <Card className="bg-[#161925] border-slate-800 shadow-sm mt-2">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base text-white font-semibold">Transações do Mês</CardTitle>
-          <Link
-            to="/transactions"
-            className="text-sm font-medium text-emerald-500 hover:text-emerald-400"
-          >
-            Ver todas
-          </Link>
+          {currentMonthTx.length > 0 && (
+            <Link
+              to="/transactions"
+              className="text-sm font-medium text-emerald-500 hover:text-emerald-400"
+            >
+              Ver todas
+            </Link>
+          )}
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {currentMonthTx.slice(0, 5).map((t) => (
-              <div
-                key={t.id}
-                className="flex justify-between items-center py-2 border-b border-slate-800/50 last:border-0"
-              >
-                <div>
-                  <p className="text-sm font-medium text-slate-200">{t.description}</p>
-                  <p className="text-xs text-slate-500">
-                    {format(new Date(t.date), 'dd/MM/yyyy')} • {t.origin}
-                  </p>
+            {currentMonthTx.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 text-center space-y-3">
+                <div className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center">
+                  <Receipt className="w-5 h-5 text-slate-400" />
                 </div>
-                <div
-                  className={`font-semibold ${t.type === 'income' ? 'text-emerald-500' : 'text-slate-300'}`}
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-slate-300">Sem transações no mês</p>
+                  <p className="text-xs text-slate-500">Registre suas receitas e despesas.</p>
+                </div>
+                <Button
+                  asChild
+                  variant="link"
+                  className="text-[#0f766e] hover:text-[#0f766e]/80 h-auto p-0"
                 >
-                  {t.type === 'income' ? '+' : '-'} R${' '}
-                  {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <Link to="/transactions">Nova transação</Link>
+                </Button>
+              </div>
+            ) : (
+              currentMonthTx.slice(0, 5).map((t) => (
+                <div
+                  key={t.id}
+                  className="flex justify-between items-center py-2 border-b border-slate-800/50 last:border-0"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-slate-200">{t.description}</p>
+                    <p className="text-xs text-slate-500">
+                      {format(new Date(t.date), 'dd/MM/yyyy')} • {t.origin}
+                    </p>
+                  </div>
+                  <div
+                    className={`font-semibold ${t.type === 'income' ? 'text-emerald-500' : 'text-slate-300'}`}
+                  >
+                    {t.type === 'income' ? '+' : '-'} R${' '}
+                    {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
                 </div>
-              </div>
-            ))}
-            {currentMonthTx.length === 0 && (
-              <div className="text-center py-4 text-sm text-slate-500">
-                Nenhuma transação neste mês.
-              </div>
+              ))
             )}
           </div>
         </CardContent>

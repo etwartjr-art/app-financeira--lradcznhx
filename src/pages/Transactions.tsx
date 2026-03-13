@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Search, Edit2, Trash2 } from 'lucide-react'
+import { Search, Edit2, Trash2, Receipt } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from '@/hooks/use-toast'
 import { MonthSelector } from '@/components/MonthSelector'
@@ -233,8 +233,25 @@ export default function Transactions() {
             ))}
             {filteredList.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-slate-500">
-                  Nenhuma transação encontrada neste mês.
+                <TableCell colSpan={6} className="h-64 text-center">
+                  <div className="flex flex-col items-center justify-center text-slate-500 space-y-3">
+                    <div className="w-12 h-12 rounded-full bg-slate-800/50 flex items-center justify-center">
+                      <Receipt className="w-6 h-6 text-slate-400" />
+                    </div>
+                    <p className="text-base font-medium text-slate-300">
+                      Nenhuma transação encontrada
+                    </p>
+                    <p className="text-sm">
+                      Você ainda não possui transações cadastradas neste período.
+                    </p>
+                    <Button
+                      variant="link"
+                      className="text-[#0f766e] hover:text-[#0f766e]/80 mt-2 h-auto p-0"
+                      onClick={() => setIsAddOpen(true)}
+                    >
+                      Criar primeira transação
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

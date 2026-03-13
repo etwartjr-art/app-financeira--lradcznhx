@@ -1,95 +1,154 @@
-import { Outlet, useLocation, Link } from 'react-router-dom'
-import { LayoutDashboard, CreditCard, GitCompareArrows, User, Plus } from 'lucide-react'
-import { useFinance } from '@/stores/FinanceContext'
-import { MagicEntryDrawer } from './MagicEntryDrawer'
+import { Link, Outlet, useLocation } from 'react-router-dom'
+import { LayoutDashboard, CreditCard, ArrowRightLeft, Settings, LogOut, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from '@/components/ui/sheet'
+import logoImg from '@/assets/financas-pessoal-etw-5d9f2.png'
+
+const NAV_ITEMS = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/cards', label: 'Cartões', icon: CreditCard },
+  { href: '/conciliation', label: 'Conciliação', icon: ArrowRightLeft },
+  { href: '/admin', label: 'Admin', icon: Settings },
+]
 
 export default function Layout() {
   const location = useLocation()
-  const { setMagicDrawerOpen } = useFinance()
-
-  const isAppRoute = ['/dashboard', '/cartoes', '/conciliacao', '/perfil'].includes(
-    location.pathname,
-  )
-  const isAdmin = location.pathname.startsWith('/admin')
-
-  if (isAdmin) {
-    return <Outlet />
-  }
 
   return (
-    <div className="bg-slate-900 min-h-screen flex justify-center">
-      <main className="w-full max-w-md bg-background min-h-screen relative flex flex-col shadow-2xl overflow-hidden">
-        <div className="flex-1 overflow-y-auto pb-24 no-scrollbar">
-          <Outlet />
+    <div className="flex min-h-screen w-full flex-col bg-muted/20 md:flex-row">
+      {/* Desktop Sidebar */}
+      <aside className="hidden w-64 flex-col border-r bg-background md:flex">
+        <div className="flex h-16 items-center gap-2 border-b px-6">
+          <img src={logoImg} alt="APP FINANÇAS PESSOAL ETW" className="h-8 w-8 object-contain" />
+          <span className="font-bold text-sm tracking-tight leading-tight">
+            APP FINANÇAS
+            <br />
+            PESSOAL ETW
+          </span>
         </div>
+        <nav className="flex-1 space-y-1 p-4">
+          {NAV_ITEMS.map((item) => {
+            const isActive = location.pathname === item.href
+            return (
+              <Link
+                key={item.href}
+                to={item.href}
+                className={cn(
+                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            )
+          })}
+        </nav>
+        <div className="border-t p-4">
+          <Button variant="ghost" className="w-full justify-start gap-3" asChild>
+            <Link to="/">
+              <LogOut className="h-4 w-4" />
+              Sair
+            </Link>
+          </Button>
+        </div>
+      </aside>
 
-        {isAppRoute && (
-          <>
-            <button
-              onClick={() => setMagicDrawerOpen(true)}
-              className="absolute bottom-20 left-1/2 -translate-x-1/2 w-14 h-14 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-[0_8px_30px_rgb(99,102,241,0.5)] z-50 hover:scale-105 transition-transform active:scale-95"
-            >
-              <Plus size={28} />
-            </button>
-
-            <nav className="absolute bottom-0 w-full h-20 bg-background/80 backdrop-blur-lg border-t flex items-center justify-between px-6 z-40 pb-safe">
-              <NavItem
-                to="/dashboard"
-                icon={LayoutDashboard}
-                label="Resumo"
-                active={location.pathname === '/dashboard'}
-              />
-              <NavItem
-                to="/cartoes"
-                icon={CreditCard}
-                label="Cartões"
-                active={location.pathname === '/cartoes'}
-              />
-              <div className="w-12" /> {/* Spacer for FAB */}
-              <NavItem
-                to="/conciliacao"
-                icon={GitCompareArrows}
-                label="Conciliação"
-                active={location.pathname === '/conciliacao'}
-              />
-              <NavItem
-                to="/dashboard"
-                icon={User}
-                label="Perfil"
-                active={location.pathname === '/perfil'}
-              />
+      {/* Mobile Top Header */}
+      <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b bg-background px-4 md:hidden">
+        <div className="flex items-center gap-2">
+          <img
+            src={logoImg}
+            alt="APP FINANÇAS PESSOAL ETW Logo"
+            className="h-8 w-8 object-contain"
+          />
+          <span className="font-bold text-xs leading-tight sm:text-sm">
+            APP FINANÇAS
+            <br />
+            PESSOAL ETW
+          </span>
+        </div>
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Toggle menu</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="flex flex-col">
+            <SheetHeader className="border-b pb-4 text-left">
+              <div className="flex items-center gap-2">
+                <img
+                  src={logoImg}
+                  alt="APP FINANÇAS PESSOAL ETW Logo"
+                  className="h-10 w-10 object-contain"
+                />
+                <SheetTitle className="text-sm font-bold leading-tight">
+                  APP FINANÇAS
+                  <br />
+                  PESSOAL ETW
+                </SheetTitle>
+              </div>
+            </SheetHeader>
+            <nav className="flex-1 space-y-2 py-4">
+              {NAV_ITEMS.map((item) => {
+                const isActive = location.pathname === item.href
+                return (
+                  <Link
+                    key={item.href}
+                    to={item.href}
+                    className={cn(
+                      'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                      isActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    )}
+                  >
+                    <item.icon className="h-5 w-5" />
+                    {item.label}
+                  </Link>
+                )
+              })}
             </nav>
+            <div className="border-t pt-4">
+              <Button variant="ghost" className="w-full justify-start gap-3" asChild>
+                <Link to="/">
+                  <LogOut className="h-5 w-5" />
+                  Sair
+                </Link>
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </header>
 
-            <MagicEntryDrawer />
-          </>
-        )}
+      {/* Main Content Area */}
+      <main className="flex-1 pb-16 md:pb-0">
+        <Outlet />
       </main>
-    </div>
-  )
-}
 
-function NavItem({
-  to,
-  icon: Icon,
-  label,
-  active,
-}: {
-  to: string
-  icon: any
-  label: string
-  active: boolean
-}) {
-  return (
-    <Link
-      to={to}
-      className={cn(
-        'flex flex-col items-center justify-center w-16 gap-1 transition-colors',
-        active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
-      )}
-    >
-      <Icon size={24} strokeWidth={active ? 2.5 : 2} />
-      <span className="text-[10px] font-medium">{label}</span>
-    </Link>
+      {/* Mobile Bottom Navigation */}
+      <nav className="fixed bottom-0 z-30 flex h-16 w-full border-t bg-background md:hidden shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+        {NAV_ITEMS.map((item) => {
+          const isActive = location.pathname === item.href
+          return (
+            <Link
+              key={item.href}
+              to={item.href}
+              className={cn(
+                'flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition-colors',
+                isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <item.icon className={cn('h-5 w-5', isActive && 'fill-primary/20')} />
+              <span>{item.label}</span>
+            </Link>
+          )
+        })}
+      </nav>
+    </div>
   )
 }

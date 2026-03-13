@@ -1,25 +1,24 @@
-/* 404 Page - Displays when a user attempts to access a non-existent route - translate to the language of the user */
-import { useLocation } from 'react-router-dom'
-import { useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
+import logoImg from '@/assets/financas-pessoal-etw-5d9f2.png'
 
-const NotFound = () => {
-  const location = useLocation()
-
-  useEffect(() => {
-    console.error('404 Error: User attempted to access non-existent route:', location.pathname)
-  }, [location.pathname])
-
+export default function NotFound() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">404</h1>
-        <p className="text-xl text-gray-600 mb-4">Oops! Page not found</p>
-        <a href="/" className="text-blue-500 hover:text-blue-700 underline">
-          Return to Home
-        </a>
-      </div>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background text-center p-4">
+      <img
+        src={logoImg}
+        alt="APP FINANÇAS PESSOAL ETW"
+        className="mb-8 h-24 w-24 object-contain opacity-50"
+      />
+      <h1 className="text-6xl font-bold text-primary mb-4">404</h1>
+      <h2 className="text-2xl font-semibold mb-2">Página não encontrada</h2>
+      <p className="text-muted-foreground mb-8 max-w-md">
+        Desculpe, a página que você está procurando não existe ou foi movida. Continue sua jornada
+        no APP FINANÇAS PESSOAL ETW.
+      </p>
+      <Button asChild>
+        <Link to="/dashboard">Voltar para o Início</Link>
+      </Button>
     </div>
   )
 }
-
-export default NotFound

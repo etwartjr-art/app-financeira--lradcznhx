@@ -1,158 +1,137 @@
-import { useFinance } from '@/stores/FinanceContext'
-import { Card, CardContent } from '@/components/ui/card'
-import {
-  ChevronLeft,
-  ChevronRight,
-  AlertTriangle,
-  ArrowUpRight,
-  ArrowDownRight,
-} from 'lucide-react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
-import { PieChart, Pie, Cell } from 'recharts'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
-import { cn } from '@/lib/utils'
+import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
+import { ArrowDownIcon, ArrowUpIcon, DollarSign, Wallet } from 'lucide-react'
+
+const chartData = [
+  { name: 'Jan', total: 1200 },
+  { name: 'Fev', total: 2100 },
+  { name: 'Mar', total: 1800 },
+  { name: 'Abr', total: 2400 },
+  { name: 'Mai', total: 2800 },
+  { name: 'Jun', total: 3200 },
+]
 
 export default function Dashboard() {
-  const { balance, transactions } = useFinance()
-
-  const chartData = [
-    { name: 'Receitas', value: 5000, color: 'hsl(var(--success))' },
-    { name: 'Despesas', value: 3200, color: 'hsl(var(--destructive))' },
-  ]
-
-  const chartConfig = {
-    Receitas: { label: 'Receitas', color: 'hsl(var(--success))' },
-    Despesas: { label: 'Despesas', color: 'hsl(var(--destructive))' },
-  }
-
-  const settledTransactions = transactions.filter((t) => !t.isPending)
-
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50/50">
-      {/* Header */}
-      <div className="bg-primary px-6 pt-12 pb-6 rounded-b-3xl text-primary-foreground shadow-sm">
-        <h2 className="text-primary-foreground/80 font-medium">Olá, Mentorando!</h2>
-
-        <div className="flex items-center justify-between mt-6 mb-2">
-          <button className="p-1 hover:bg-primary-foreground/10 rounded-full">
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <span className="font-semibold capitalize">
-            {format(new Date(), 'MMMM yyyy', { locale: ptBR })}
-          </span>
-          <button className="p-1 hover:bg-primary-foreground/10 rounded-full">
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="mt-4">
-          <p className="text-sm font-medium text-primary-foreground/80 mb-1">
-            Saldo em Contas (Caixa)
-          </p>
-          <h1 className="text-4xl font-bold tracking-tight">
-            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(balance)}
-          </h1>
-        </div>
+    <div className="flex flex-col gap-6 p-4 md:p-8 animate-fade-in">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground">Visão geral do APP FINANÇAS PESSOAL ETW.</p>
       </div>
 
-      <div className="p-6 space-y-6 -mt-4 relative z-10">
-        {/* Atenção Card */}
-        <Card className="bg-warning/10 border-warning/20 shadow-none">
-          <CardContent className="p-4 flex items-start gap-3">
-            <AlertTriangle className="text-warning w-5 h-5 shrink-0 mt-0.5" />
-            <div>
-              <h3 className="font-semibold text-warning-foreground text-sm">
-                Fatura Nubank Próxima
-              </h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                Vence em 2 dias. Valor estimado: R$ 4.200,00
-              </p>
-            </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Saldo Total</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">R$ 12.345,67</div>
+            <p className="text-xs text-muted-foreground">+20.1% em relação ao mês anterior</p>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Receitas</CardTitle>
+            <ArrowUpIcon className="h-4 w-4 text-emerald-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">R$ 5.432,10</div>
+            <p className="text-xs text-muted-foreground">+15% este mês</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Despesas</CardTitle>
+            <ArrowDownIcon className="h-4 w-4 text-rose-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">R$ 2.123,45</div>
+            <p className="text-xs text-muted-foreground">-4% este mês</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Investimentos</CardTitle>
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">R$ 4.567,89</div>
+            <p className="text-xs text-muted-foreground">+8.2% de rendimento</p>
+          </CardContent>
+        </Card>
+      </div>
 
-        {/* Chart */}
-        <Card className="shadow-subtle border-border/50">
-          <CardContent className="p-6">
-            <h3 className="font-semibold text-foreground mb-4">Visão do Mês</h3>
-            <div className="h-[200px] w-full">
-              <ChartContainer config={chartConfig} className="h-full w-full">
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <Card className="lg:col-span-4">
+          <CardHeader>
+            <CardTitle>Desempenho Financeiro</CardTitle>
+            <CardDescription>Fluxo de caixa dos últimos 6 meses.</CardDescription>
+          </CardHeader>
+          <CardContent className="pl-0">
+            <ChartContainer
+              config={{ total: { label: 'Total (R$)', color: 'hsl(var(--primary))' } }}
+              className="h-[300px] w-full"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis
+                    dataKey="name"
+                    stroke="#888888"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    stroke="#888888"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => `R$${value}`}
+                  />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                </PieChart>
-              </ChartContainer>
-            </div>
-            <div className="flex justify-center gap-6 mt-2 text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-success"></div>Receitas
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-destructive"></div>Despesas
-              </div>
-            </div>
+                  <Area
+                    type="monotone"
+                    dataKey="total"
+                    stroke="hsl(var(--primary))"
+                    fillOpacity={1}
+                    fill="url(#colorTotal)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartContainer>
           </CardContent>
         </Card>
 
-        {/* Transactions */}
-        <div>
-          <h3 className="font-semibold text-foreground mb-4 px-1">Últimas Movimentações</h3>
-          <div className="space-y-3">
-            {settledTransactions.map((tx) => (
-              <div
-                key={tx.id}
-                className="bg-card p-4 rounded-xl border border-border/50 flex items-center justify-between shadow-sm"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      'w-10 h-10 rounded-full flex items-center justify-center',
-                      tx.type === 'income'
-                        ? 'bg-success/10 text-success'
-                        : 'bg-destructive/10 text-destructive',
-                    )}
-                  >
-                    {tx.type === 'income' ? (
-                      <ArrowUpRight className="w-5 h-5" />
-                    ) : (
-                      <ArrowDownRight className="w-5 h-5" />
-                    )}
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle>Transações Recentes</CardTitle>
+            <CardDescription>Últimas movimentações registradas.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center gap-4">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted">
+                    <DollarSign className="h-4 w-4 text-foreground" />
                   </div>
-                  <div>
-                    <p className="font-medium text-sm text-foreground">{tx.description}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {tx.origin} • {format(new Date(tx.date), 'dd/MM')}
-                    </p>
+                  <div className="flex-1 space-y-1">
+                    <p className="text-sm font-medium leading-none">Compra no Supermercado</p>
+                    <p className="text-sm text-muted-foreground">Hoje, 14:30</p>
                   </div>
+                  <div className="font-medium text-rose-500">- R$ 150,00</div>
                 </div>
-                <span
-                  className={cn(
-                    'font-semibold',
-                    tx.type === 'income' ? 'text-success' : 'text-foreground',
-                  )}
-                >
-                  {tx.type === 'income' ? '+' : '-'}
-                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                    tx.amount,
-                  )}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

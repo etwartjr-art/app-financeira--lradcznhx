@@ -1,9 +1,53 @@
+import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Edit } from 'lucide-react'
+import { toast } from '@/hooks/use-toast'
+
+type User = {
+  id: string
+  name: string
+  email: string
+  role: string
+  active: boolean
+}
 
 export default function Admin() {
+  const [users, setUsers] = useState<User[]>([
+    { id: '1', name: 'João Silva', email: 'joao@financasetw.com.br', role: 'Admin', active: true },
+    {
+      id: '2',
+      name: 'Maria Souza',
+      email: 'maria@financasetw.com.br',
+      role: 'User',
+      active: false,
+    },
+  ])
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+
+  const toggleUserStatus = (id: string, active: boolean) => {
+    setUsers(users.map((u) => (u.id === id ? { ...u, active } : u)))
+    toast({ title: `Status alterado para ${active ? 'Ativo' : 'Inativo'}` })
+  }
+
+  const handleUpdateUser = () => {
+    if (!editingUser) return
+    setUsers(users.map((u) => (u.id === editingUser.id ? editingUser : u)))
+    setEditingUser(null)
+    toast({ title: 'Usuário atualizado com sucesso!' })
+  }
+
   return (
     <div className="flex flex-col gap-6 p-4 md:p-8 animate-fade-in">
       <div>
@@ -37,15 +81,35 @@ export default function Admin() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between rounded-md border p-4">
-                <div>
-                  <p className="font-medium">João Silva (Admin)</p>
-                  <p className="text-sm text-muted-foreground">joao@financasetw.com.br</p>
+              {users.map((user) => (
+                <div
+                  key={user.id}
+                  className="flex items-center justify-between rounded-md border p-4 bg-card"
+                >
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-medium">{user.name}</p>
+                      <Badge
+                        variant={user.active ? 'default' : 'secondary'}
+                        className="text-[10px] px-1.5 py-0"
+                      >
+                        {user.active ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={user.active}
+                      onCheckedChange={(val) => toggleUserStatus(user.id, val)}
+                      title="Alternar Status"
+                    />
+                    <Button variant="ghost" size="icon" onClick={() => setEditingUser(user)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <Button variant="outline" size="sm">
-                  Editar
-                </Button>
-              </div>
+              ))}
               <Button className="w-full" variant="secondary">
                 Adicionar Novo Usuário
               </Button>
@@ -53,6 +117,46 @@ export default function Admin() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={!!editingUser} onOpenChange={(o) => !o && setEditingUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Usuário</DialogTitle>
+          </DialogHeader>
+          {editingUser && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Nome</Label>
+                <Input
+                  value={editingUser.name}
+                  onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>E-mail</Label>
+                <Input
+                  type="email"
+                  value={editingUser.email}
+                  onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                />
+              </div>
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="space-y-0.5">
+                  <Label>Status do Usuário</Label>
+                  <p className="text-sm text-muted-foreground">Permitir acesso ao sistema</p>
+                </div>
+                <Switch
+                  checked={editingUser.active}
+                  onCheckedChange={(val) => setEditingUser({ ...editingUser, active: val })}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={handleUpdateUser}>Salvar Perfil</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

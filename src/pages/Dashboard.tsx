@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
@@ -8,12 +9,31 @@ import {
   Wallet,
   ChevronLeft,
   ChevronRight,
+  Edit,
+  Plus,
 } from 'lucide-react'
-import { useFinance } from '@/stores/FinanceContext'
+import { useFinance, type Transaction } from '@/stores/FinanceContext'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { format, addMonths, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
+import { toast } from '@/hooks/use-toast'
 
 const chartData = [
   { name: 'Jan', total: 1200 },
@@ -25,7 +45,15 @@ const chartData = [
 ]
 
 export default function Dashboard() {
-  const { balance, transactions, currentMonth, setCurrentMonth } = useFinance()
+  const {
+    balance,
+    transactions,
+    currentMonth,
+    setCurrentMonth,
+    setMagicDrawerOpen,
+    updateTransaction,
+  } = useFinance()
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null)
 
   const filteredTx = transactions.filter((t) => {
     const d = new Date(t.date)
@@ -40,6 +68,24 @@ export default function Dashboard() {
   const despesas = filteredTx
     .filter((t) => t.type === 'expense')
     .reduce((acc, t) => acc + t.amount, 0)
+
+  const handleUpdateTx = () => {
+    if (!editingTx) return
+    const val = parseFloat(editingTx.amount.toString())
+    if (isNaN(val) || val <= 0 || !editingTx.description) {
+      toast({ title: 'Preencha os campos corretamente.', variant: 'destructive' })
+      return
+    }
+    updateTransaction(editingTx.id, {
+      amount: val,
+      description: editingTx.description,
+      type: editingTx.type,
+      date: editingTx.date,
+      category: editingTx.category,
+    })
+    setEditingTx(null)
+    toast({ title: 'Transação atualizada!' })
+  }
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-8 animate-fade-in">
@@ -169,9 +215,14 @@ export default function Dashboard() {
         </Card>
 
         <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle>Transações de {format(currentMonth, 'MMMM', { locale: ptBR })}</CardTitle>
-            <CardDescription>Lançamentos no mês selecionado.</CardDescription>
+          <CardHeader className="flex flex-row items-start justify-between pb-4">
+            <div>
+              <CardTitle>Transações - {format(currentMonth, 'MMMM', { locale: ptBR })}</CardTitle>
+              <CardDescription>Lançamentos no mês selecionado.</CardDescription>
+            </div>
+            <Button size="sm" onClick={() => setMagicDrawerOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Nova
+            </Button>
           </CardHeader>
           <CardContent>
             {filteredTx.length === 0 ? (
@@ -183,7 +234,7 @@ export default function Dashboard() {
                 {filteredTx.map((t) => (
                   <div
                     key={t.id}
-                    className="flex items-center gap-4 border-b pb-4 last:border-0 last:pb-0"
+                    className="flex items-center gap-4 border-b pb-4 last:border-0 last:pb-0 group"
                   >
                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted">
                       {t.type === 'income' ? (
@@ -196,16 +247,26 @@ export default function Dashboard() {
                       <p className="text-sm font-medium leading-none">{t.description}</p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>{format(new Date(t.date), 'dd/MM/yyyy')}</span> •{' '}
-                        <span>{t.origin}</span>
+                        <span>{t.origin}</span> • <span>{t.category}</span>
                       </div>
                     </div>
-                    <div
-                      className={cn(
-                        'font-medium',
-                        t.type === 'income' ? 'text-emerald-600' : 'text-rose-600',
-                      )}
-                    >
-                      {t.type === 'income' ? '+' : '-'} R$ {t.amount.toFixed(2).replace('.', ',')}
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={cn(
+                          'font-medium whitespace-nowrap',
+                          t.type === 'income' ? 'text-emerald-600' : 'text-rose-600',
+                        )}
+                      >
+                        {t.type === 'income' ? '+' : '-'} R$ {t.amount.toFixed(2).replace('.', ',')}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setEditingTx(t)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -214,6 +275,70 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={!!editingTx} onOpenChange={(o) => !o && setEditingTx(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Transação</DialogTitle>
+          </DialogHeader>
+          {editingTx && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Tipo</Label>
+                <Select
+                  value={editingTx.type}
+                  onValueChange={(v: 'income' | 'expense') =>
+                    setEditingTx({ ...editingTx, type: v })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="expense">Despesa</SelectItem>
+                    <SelectItem value="income">Receita</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Valor</Label>
+                <Input
+                  type="number"
+                  value={editingTx.amount}
+                  onChange={(e) => setEditingTx({ ...editingTx, amount: Number(e.target.value) })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Descrição</Label>
+                <Input
+                  value={editingTx.description}
+                  onChange={(e) => setEditingTx({ ...editingTx, description: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Data</Label>
+                <Input
+                  type="date"
+                  value={editingTx.date.split('T')[0]}
+                  onChange={(e) =>
+                    setEditingTx({ ...editingTx, date: new Date(e.target.value).toISOString() })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Categoria</Label>
+                <Input
+                  value={editingTx.category}
+                  onChange={(e) => setEditingTx({ ...editingTx, category: e.target.value })}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={handleUpdateTx}>Salvar Alterações</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

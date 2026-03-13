@@ -12,15 +12,17 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Plus, ChevronLeft, ChevronRight, CreditCard as CardIcon } from 'lucide-react'
-import { useFinance } from '@/stores/FinanceContext'
+import { Plus, ChevronLeft, ChevronRight, CreditCard as CardIcon, Edit2 } from 'lucide-react'
+import { useFinance, type Card as CardType } from '@/stores/FinanceContext'
 import { format, addMonths, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { toast } from '@/hooks/use-toast'
 
 export default function Cards() {
-  const { cards, addCard, transactions, currentMonth, setCurrentMonth } = useFinance()
+  const { cards, addCard, updateCard, transactions, currentMonth, setCurrentMonth } = useFinance()
   const [isAddOpen, setIsAddOpen] = useState(false)
+  const [editingCard, setEditingCard] = useState<CardType | null>(null)
+
   const [newCard, setNewCard] = useState({
     name: '',
     type: 'Credit',
@@ -54,6 +56,21 @@ export default function Cards() {
     setIsAddOpen(false)
     setNewCard({ name: '', type: 'Credit', limit: '', used: '', color: '#18181b' })
     toast({ title: 'Cartão adicionado com sucesso!' })
+  }
+
+  const handleUpdateCard = () => {
+    if (!editingCard) return
+    const limitNum = parseFloat(editingCard.limit.toString())
+    if (!editingCard.name || isNaN(limitNum)) {
+      return toast({ title: 'Preencha os campos numéricos corretamente.', variant: 'destructive' })
+    }
+    updateCard(editingCard.id, {
+      name: editingCard.name,
+      type: editingCard.type,
+      limit: limitNum,
+    })
+    setEditingCard(null)
+    toast({ title: 'Cartão atualizado com sucesso!' })
   }
 
   return (
@@ -155,7 +172,17 @@ export default function Cards() {
                     <CardTitle className="text-xl font-bold">{card.name}</CardTitle>
                     <CardDescription className="text-white/80">{card.type}</CardDescription>
                   </div>
-                  <CardIcon className="h-8 w-8 opacity-70" />
+                  <div className="flex flex-col items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-white/70 hover:text-white hover:bg-white/20"
+                      onClick={() => setEditingCard(card)}
+                    >
+                      <Edit2 className="h-3 w-3" />
+                    </Button>
+                    <CardIcon className="h-6 w-6 opacity-70" />
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="relative z-10 space-y-4 pt-4">
@@ -174,6 +201,45 @@ export default function Cards() {
           )
         })}
       </div>
+
+      <Dialog open={!!editingCard} onOpenChange={(open) => !open && setEditingCard(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Cartão</DialogTitle>
+          </DialogHeader>
+          {editingCard && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Nome do Banco / Cartão</Label>
+                <Input
+                  value={editingCard.name}
+                  onChange={(e) => setEditingCard({ ...editingCard, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Bandeira / Tipo</Label>
+                <Input
+                  value={editingCard.type}
+                  onChange={(e) => setEditingCard({ ...editingCard, type: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Limite Total</Label>
+                <Input
+                  type="number"
+                  value={editingCard.limit}
+                  onChange={(e) =>
+                    setEditingCard({ ...editingCard, limit: Number(e.target.value) })
+                  }
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={handleUpdateCard}>Salvar Alterações</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card className="mt-4">
         <CardHeader>

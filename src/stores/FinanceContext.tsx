@@ -34,6 +34,8 @@ type FinanceContextType = {
   setMagicDrawerOpen: (open: boolean) => void
   addTransaction: (tx: Omit<Transaction, 'id'>) => void
   addCard: (card: Omit<Card, 'id'>) => void
+  updateCard: (id: string, cardData: Partial<Card>) => void
+  updateTransaction: (id: string, txData: Partial<Transaction>) => void
 }
 
 const FinanceContext = createContext<FinanceContextType | null>(null)
@@ -103,6 +105,10 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     setCards((prev) => [...prev, { ...card, id: Math.random().toString() }])
   }
 
+  const updateCard = (id: string, cardData: Partial<Card>) => {
+    setCards((prev) => prev.map((c) => (c.id === id ? { ...c, ...cardData } : c)))
+  }
+
   const addTransaction = (tx: Omit<Transaction, 'id'>) => {
     const newTx: Transaction = { ...tx, id: Math.random().toString() }
     setTransactions((prev) => [newTx, ...prev])
@@ -125,6 +131,53 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     }
   }
 
+  const updateTransaction = (id: string, txData: Partial<Transaction>) => {
+    const oldTx = transactions.find((t) => t.id === id)
+    if (!oldTx) return
+
+    const newTx = { ...oldTx, ...txData }
+    setTransactions((prev) => prev.map((t) => (t.id === id ? newTx : t)))
+
+    const isOldCard = cards.some((c) => c.name === oldTx.origin)
+    const isNewCard = cards.some((c) => c.name === newTx.origin)
+
+    if (isOldCard || isNewCard) {
+      setCards((prevCards) => {
+        const updated = [...prevCards]
+        const oldIndex = updated.findIndex((c) => c.name === oldTx.origin)
+        if (oldIndex !== -1) {
+          updated[oldIndex] = {
+            ...updated[oldIndex],
+            used: Math.max(
+              0,
+              updated[oldIndex].used - (oldTx.type === 'expense' ? oldTx.amount : -oldTx.amount),
+            ),
+          }
+        }
+        const newIndex = updated.findIndex((c) => c.name === newTx.origin)
+        if (newIndex !== -1) {
+          updated[newIndex] = {
+            ...updated[newIndex],
+            used: Math.max(
+              0,
+              updated[newIndex].used + (newTx.type === 'expense' ? newTx.amount : -newTx.amount),
+            ),
+          }
+        }
+        return updated
+      })
+    }
+
+    if (!isOldCard || !isNewCard) {
+      setBalance((prev) => {
+        let b = prev
+        if (!isOldCard) b = oldTx.type === 'income' ? b - oldTx.amount : b + oldTx.amount
+        if (!isNewCard) b = newTx.type === 'income' ? b + newTx.amount : b - newTx.amount
+        return b
+      })
+    }
+  }
+
   const value = useMemo(
     () => ({
       isLoggedIn,
@@ -138,6 +191,8 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       setMagicDrawerOpen,
       addTransaction,
       addCard,
+      updateCard,
+      updateTransaction,
     }),
     [isLoggedIn, balance, transactions, cards, isMagicDrawerOpen, currentMonth],
   )

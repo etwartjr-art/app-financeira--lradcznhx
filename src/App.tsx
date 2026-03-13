@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -21,14 +21,22 @@ const ProtectedLayout = () => {
   return <Layout />
 }
 
+const AdminLayout = () => {
+  const { currentUser } = useFinance()
+  if (currentUser?.role !== 'Admin') return <Navigate to="/dashboard" replace />
+  return <Outlet />
+}
+
 function AppContent() {
+  const { isLoggedIn } = useFinance()
+
   return (
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <Router>
         <Routes>
-          <Route path="/" element={<Index />} />
+          <Route path="/" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <Index />} />
 
           <Route element={<ProtectedLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
@@ -37,9 +45,12 @@ function AppContent() {
             <Route path="/annual-report" element={<AnnualReport />} />
             <Route path="/categories" element={<Categories />} />
             <Route path="/import" element={<Import />} />
-            <Route path="/users" element={<Users />} />
             <Route path="/conciliation" element={<Navigate to="/import" replace />} />
-            <Route path="/admin" element={<Navigate to="/users" replace />} />
+
+            <Route element={<AdminLayout />}>
+              <Route path="/users" element={<Users />} />
+              <Route path="/admin" element={<Navigate to="/users" replace />} />
+            </Route>
           </Route>
 
           <Route path="*" element={<NotFound />} />

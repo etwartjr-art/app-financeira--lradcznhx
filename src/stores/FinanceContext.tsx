@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useMemo } from 'react'
 
 export type Transaction = {
   id: string
+  userId: string
   amount: number
   description: string
   type: 'income' | 'expense'
@@ -14,6 +15,7 @@ export type Transaction = {
 
 export type Card = {
   id: string
+  userId: string
   name: string
   type: string
   last4: string
@@ -27,6 +29,7 @@ export type Card = {
 
 export type Category = {
   id: string
+  userId: string
   name: string
   color: string
 }
@@ -42,6 +45,7 @@ export type User = {
 }
 
 type FinanceContextType = {
+  currentUser: User | null
   isLoggedIn: boolean
   balance: number
   transactions: Transaction[]
@@ -50,18 +54,18 @@ type FinanceContextType = {
   users: User[]
   currentMonth: Date
   setCurrentMonth: (date: Date) => void
-  login: () => void
+  login: (user: User) => void
   logout: () => void
-  addTransaction: (tx: Omit<Transaction, 'id'>) => void
+  addTransaction: (tx: Omit<Transaction, 'id' | 'userId'>) => void
   updateTransaction: (id: string, txData: Partial<Transaction>) => void
   deleteTransaction: (id: string) => void
-  addCard: (card: Omit<Card, 'id'>) => void
+  addCard: (card: Omit<Card, 'id' | 'userId'>) => void
   updateCard: (id: string, cardData: Partial<Card>) => void
   deleteCard: (id: string) => void
-  addCategory: (cat: Omit<Category, 'id'>) => void
+  addCategory: (cat: Omit<Category, 'id' | 'userId'>) => void
   updateCategory: (id: string, catData: Partial<Category>) => void
   deleteCategory: (id: string) => void
-  addUser: (user: Omit<User, 'id'>) => void
+  addUser: (user: Omit<User, 'id'>) => User
   updateUser: (id: string, userData: Partial<User>) => void
   deleteUser: (id: string) => void
 }
@@ -71,11 +75,19 @@ const FinanceContext = createContext<FinanceContextType | null>(null)
 const dStr = (daysBack: number) => new Date(Date.now() - daysBack * 86400000).toISOString()
 
 export const FinanceProvider = ({ children }: { children: React.ReactNode }) => {
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return localStorage.getItem('@finance-app:isLoggedIn') === 'true'
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('@finance-app:user')
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch {
+        return null
+      }
+    }
+    return null
   })
 
-  const [balance, setBalance] = useState(12450.5)
+  const isLoggedIn = !!currentUser
   const [currentMonth, setCurrentMonth] = useState(new Date())
 
   const [users, setUsers] = useState<User[]>([
@@ -108,19 +120,26 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     },
   ])
 
+  const defaultCatsFor = (userId: string) => [
+    { id: Math.random().toString(), userId, name: 'Alimentação', color: '#ef4444' },
+    { id: Math.random().toString(), userId, name: 'Transporte', color: '#3b82f6' },
+    { id: Math.random().toString(), userId, name: 'Moradia', color: '#10b981' },
+    { id: Math.random().toString(), userId, name: 'Lazer', color: '#f59e0b' },
+    { id: Math.random().toString(), userId, name: 'Saúde', color: '#ec4899' },
+    { id: Math.random().toString(), userId, name: 'Salário', color: '#22c55e' },
+    { id: Math.random().toString(), userId, name: 'Outros', color: '#64748b' },
+  ]
+
   const [categories, setCategories] = useState<Category[]>([
-    { id: '1', name: 'Alimentação', color: '#ef4444' },
-    { id: '2', name: 'Transporte', color: '#3b82f6' },
-    { id: '3', name: 'Moradia', color: '#10b981' },
-    { id: '4', name: 'Lazer', color: '#f59e0b' },
-    { id: '5', name: 'Saúde', color: '#ec4899' },
-    { id: '6', name: 'Salário', color: '#22c55e' },
-    { id: '7', name: 'Outros', color: '#64748b' },
+    ...defaultCatsFor('1'),
+    ...defaultCatsFor('2'),
+    ...defaultCatsFor('3'),
   ])
 
   const [cards, setCards] = useState<Card[]>([
     {
       id: '1',
+      userId: '1',
       name: 'itau',
       type: 'Mastercard',
       last4: '5119',
@@ -135,7 +154,18 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
 
   const [transactions, setTransactions] = useState<Transaction[]>([
     {
+      id: 't0',
+      userId: '1',
+      amount: 7700,
+      description: 'Saldo Inicial',
+      type: 'income',
+      date: dStr(30),
+      origin: 'Conta Principal',
+      category: 'Outros',
+    },
+    {
       id: 't1',
+      userId: '1',
       amount: 5000,
       description: 'Salário',
       type: 'income',
@@ -145,6 +175,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     },
     {
       id: 't2',
+      userId: '1',
       amount: 250.5,
       description: 'Supermercado',
       type: 'expense',
@@ -154,6 +185,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     },
     {
       id: 't3',
+      userId: '1',
       amount: 80,
       description: 'Combustível',
       type: 'expense',
@@ -163,56 +195,87 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     },
   ])
 
-  const login = () => {
+  const userTransactions = useMemo(
+    () => transactions.filter((t) => t.userId === currentUser?.id),
+    [transactions, currentUser],
+  )
+
+  const userCards = useMemo(
+    () => cards.filter((c) => c.userId === currentUser?.id),
+    [cards, currentUser],
+  )
+
+  const userCategories = useMemo(
+    () => categories.filter((c) => c.userId === currentUser?.id),
+    [categories, currentUser],
+  )
+
+  const balance = useMemo(() => {
+    return userTransactions.reduce((acc, tx) => {
+      if (!userCards.some((c) => c.name === tx.origin)) {
+        return tx.type === 'income' ? acc + tx.amount : acc - tx.amount
+      }
+      return acc
+    }, 0)
+  }, [userTransactions, userCards])
+
+  const login = (user: User) => {
     localStorage.setItem('@finance-app:isLoggedIn', 'true')
-    setIsLoggedIn(true)
-  }
-  const logout = () => {
-    localStorage.removeItem('@finance-app:isLoggedIn')
-    setIsLoggedIn(false)
+    localStorage.setItem('@finance-app:user', JSON.stringify(user))
+    setCurrentUser(user)
   }
 
-  const addUser = (user: Omit<User, 'id'>) =>
-    setUsers((p) => [...p, { ...user, id: Math.random().toString() }])
+  const logout = () => {
+    localStorage.removeItem('@finance-app:isLoggedIn')
+    localStorage.removeItem('@finance-app:user')
+    setCurrentUser(null)
+  }
+
+  const addUser = (user: Omit<User, 'id'>) => {
+    const newUser = { ...user, id: Math.random().toString() }
+    setUsers((p) => [...p, newUser])
+    setCategories((p) => [...p, ...defaultCatsFor(newUser.id)])
+    return newUser
+  }
   const updateUser = (id: string, data: Partial<User>) =>
     setUsers((p) => p.map((u) => (u.id === id ? { ...u, ...data } : u)))
   const deleteUser = (id: string) => setUsers((p) => p.filter((u) => u.id !== id))
 
-  const addCategory = (cat: Omit<Category, 'id'>) =>
-    setCategories((p) => [...p, { ...cat, id: Math.random().toString() }])
+  const addCategory = (cat: Omit<Category, 'id' | 'userId'>) => {
+    if (!currentUser) return
+    setCategories((p) => [...p, { ...cat, id: Math.random().toString(), userId: currentUser.id }])
+  }
   const updateCategory = (id: string, data: Partial<Category>) =>
     setCategories((p) => p.map((c) => (c.id === id ? { ...c, ...data } : c)))
   const deleteCategory = (id: string) => setCategories((p) => p.filter((c) => c.id !== id))
 
-  const addCard = (card: Omit<Card, 'id'>) =>
-    setCards((p) => [...p, { ...card, id: Math.random().toString() }])
+  const addCard = (card: Omit<Card, 'id' | 'userId'>) => {
+    if (!currentUser) return
+    setCards((p) => [...p, { ...card, id: Math.random().toString(), userId: currentUser.id }])
+  }
   const updateCard = (id: string, data: Partial<Card>) =>
     setCards((p) => p.map((c) => (c.id === id ? { ...c, ...data } : c)))
   const deleteCard = (id: string) => setCards((p) => p.filter((c) => c.id !== id))
 
-  const addTransaction = (tx: Omit<Transaction, 'id'>) => {
-    setTransactions((p) => [{ ...tx, id: Math.random().toString() }, ...p])
-    if (!cards.some((c) => c.name === tx.origin))
-      setBalance((p) => (tx.type === 'income' ? p + tx.amount : p - tx.amount))
+  const addTransaction = (tx: Omit<Transaction, 'id' | 'userId'>) => {
+    if (!currentUser) return
+    setTransactions((p) => [{ ...tx, id: Math.random().toString(), userId: currentUser.id }, ...p])
   }
   const updateTransaction = (id: string, data: Partial<Transaction>) => {
     setTransactions((p) => p.map((t) => (t.id === id ? ({ ...t, ...data } as Transaction) : t)))
   }
   const deleteTransaction = (id: string) => {
-    const tx = transactions.find((t) => t.id === id)
-    if (!tx) return
     setTransactions((p) => p.filter((t) => t.id !== id))
-    if (!cards.some((c) => c.name === tx.origin))
-      setBalance((p) => (tx.type === 'income' ? p - tx.amount : p + tx.amount))
   }
 
   const value = useMemo(
     () => ({
+      currentUser,
       isLoggedIn,
       balance,
-      transactions,
-      cards,
-      categories,
+      transactions: userTransactions,
+      cards: userCards,
+      categories: userCategories,
       users,
       currentMonth,
       setCurrentMonth,
@@ -231,7 +294,16 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       updateUser,
       deleteUser,
     }),
-    [isLoggedIn, balance, transactions, cards, categories, users, currentMonth],
+    [
+      currentUser,
+      isLoggedIn,
+      balance,
+      userTransactions,
+      userCards,
+      userCategories,
+      users,
+      currentMonth,
+    ],
   )
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>

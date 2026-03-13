@@ -43,7 +43,7 @@ export default function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () 
       })
     }
 
-    addUser({
+    const createdUser = addUser({
       name,
       email,
       password,
@@ -53,7 +53,7 @@ export default function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () 
     })
 
     toast({ title: 'Cadastro realizado com sucesso!', description: 'Bem-vindo(a) ao sistema.' })
-    login()
+    login(createdUser)
     navigate('/dashboard')
   }
 
@@ -70,7 +70,7 @@ export default function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () 
           variant: 'destructive',
         })
       } else {
-        addUser({
+        const createdUser = addUser({
           name: mockEmail.split('@')[0],
           email: mockEmail,
           password: 'google_oauth_dummy',
@@ -79,7 +79,7 @@ export default function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () 
           createdAt: new Date().toISOString(),
         })
         toast({ title: 'Sucesso!', description: 'Sua conta foi criada via Google.' })
-        login()
+        login(createdUser)
         navigate('/dashboard')
       }
     }, 1500)

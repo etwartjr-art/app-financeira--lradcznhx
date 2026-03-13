@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useFinance } from '@/stores/FinanceContext'
 import { toast } from '@/hooks/use-toast'
-import { Loader2, ArrowLeft, ShieldCheck } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { GoogleIcon } from '@/components/icons/GoogleIcon'
 
 export default function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => void }) {
@@ -15,10 +15,6 @@ export default function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-
-  const [googleStep, setGoogleStep] = useState<'idle' | 'password'>('idle')
-  const [googleEmail, setGoogleEmail] = useState('')
-  const [googlePassword, setGooglePassword] = useState('')
 
   const handleManualLogin = (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,7 +28,7 @@ export default function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: 
 
     if (user) {
       toast({ title: `Bem-vindo(a), ${user.name}!`, description: 'Login realizado com sucesso.' })
-      login()
+      login(user)
       navigate('/dashboard')
     } else {
       const userExists = users.some((u) => u.email.toLowerCase() === email.trim().toLowerCase())
@@ -60,40 +56,23 @@ export default function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: 
       const foundUser = users.find((u) => u.email.toLowerCase() === mockedOAuthEmail.toLowerCase())
 
       if (foundUser) {
-        setGoogleEmail(foundUser.email)
-        setGoogleStep('password')
         toast({
-          title: 'Conta Google Validada',
-          description: 'Por favor, informe sua senha local para concluir o acesso.',
+          title: `Bem-vindo(a), ${foundUser.name}!`,
+          description: 'Acesso via Google concluído.',
         })
+        login(foundUser)
+        navigate('/dashboard')
       } else {
         toast({
-          title: 'Acesso negado',
-          description: 'A conta Google utilizada não está vinculada a nenhum usuário registrado.',
+          title: 'Conta não encontrada',
+          description: 'Nenhum usuário registrado com este e-mail do Google.',
           variant: 'destructive',
         })
       }
     }, 1500)
   }
 
-  const handleGooglePasswordSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const user = users.find((u) => u.email === googleEmail && u.password === googlePassword)
-
-    if (user) {
-      toast({ title: `Bem-vindo(a), ${user.name}!`, description: 'Autenticação dupla concluída.' })
-      login()
-      navigate('/dashboard')
-    } else {
-      toast({
-        title: 'Credenciais inválidas',
-        description: 'Senha incorreta para a conta Google.',
-        variant: 'destructive',
-      })
-    }
-  }
-
-  return googleStep === 'idle' ? (
+  return (
     <div className="space-y-6 animate-fade-in">
       <Button
         type="button"
@@ -164,54 +143,6 @@ export default function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: 
           </button>
         </p>
       </div>
-    </div>
-  ) : (
-    <div className="space-y-6 animate-fade-in-up">
-      <div className="flex flex-col items-center text-center space-y-3 mb-2">
-        <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center">
-          <ShieldCheck className="w-6 h-6 text-emerald-500" />
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold text-white">Verificação de Segurança</h3>
-          <p className="text-sm text-slate-400 mt-1">
-            Conta: <span className="font-medium text-slate-200">{googleEmail}</span>
-          </p>
-        </div>
-      </div>
-      <form onSubmit={handleGooglePasswordSubmit} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="googlePassword" className="text-slate-300">
-            Digite sua senha do sistema
-          </Label>
-          <Input
-            id="googlePassword"
-            type="password"
-            autoFocus
-            value={googlePassword}
-            onChange={(e) => setGooglePassword(e.target.value)}
-            className="h-12 bg-[#0b0e14] border-slate-800 focus-visible:ring-emerald-500 text-2xl tracking-widest font-mono text-center"
-          />
-        </div>
-        <div className="flex gap-3 pt-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setGoogleStep('idle')
-              setGooglePassword('')
-            }}
-            className="h-12 bg-transparent border-slate-700 text-slate-400 hover:text-white"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <Button
-            type="submit"
-            className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-base rounded-xl"
-          >
-            Confirmar Acesso
-          </Button>
-        </div>
-      </form>
     </div>
   )
 }

@@ -20,19 +20,18 @@ const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/transactions', label: 'Transações', icon: ArrowRightLeft },
   { href: '/cards', label: 'Cartões', icon: CreditCard },
+  { href: '/categories', label: 'Categorias', icon: Tags },
   { href: '/annual-report', label: 'Relatório Anual', icon: BarChart3 },
   { href: '/import', label: 'Importar', icon: Upload },
 ]
 
-const ADMIN_ITEMS = [
-  { href: '/categories', label: 'Categorias', icon: Tags },
-  { href: '/users', label: 'Usuários', icon: Users },
-]
+const ADMIN_ITEMS = [{ href: '/users', label: 'Usuários', icon: Users }]
 
 export default function Layout() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { logout } = useFinance()
+  const { logout, currentUser } = useFinance()
+  const isAdmin = currentUser?.role === 'Admin'
 
   const handleLogout = () => {
     logout()
@@ -76,12 +75,27 @@ export default function Layout() {
         </div>
         <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
           <NavLinks items={NAV_ITEMS} />
-          <div className="mt-8 mb-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-            Admin
-          </div>
-          <NavLinks items={ADMIN_ITEMS} />
+          {isAdmin && (
+            <>
+              <div className="mt-8 mb-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Admin
+              </div>
+              <NavLinks items={ADMIN_ITEMS} />
+            </>
+          )}
         </nav>
         <div className="border-t border-slate-800 p-4">
+          <div className="flex items-center gap-3 px-3 py-2 mb-2">
+            <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-semibold text-slate-300 shrink-0">
+              {currentUser?.name?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            <div className="flex flex-col overflow-hidden">
+              <span className="text-sm font-medium text-slate-200 truncate">
+                {currentUser?.name}
+              </span>
+              <span className="text-[10px] text-slate-500 truncate">{currentUser?.email}</span>
+            </div>
+          </div>
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 text-slate-400 hover:text-slate-50"
@@ -125,11 +139,24 @@ export default function Layout() {
             </SheetHeader>
             <nav className="flex-1 space-y-2 p-4 overflow-y-auto">
               <NavLinks items={NAV_ITEMS} />
-              <div className="mt-6 mb-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Admin
-              </div>
-              <NavLinks items={ADMIN_ITEMS} />
+              {isAdmin && (
+                <>
+                  <div className="mt-6 mb-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Admin
+                  </div>
+                  <NavLinks items={ADMIN_ITEMS} />
+                </>
+              )}
             </nav>
+            <div className="border-t border-slate-800 p-4">
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-3 text-slate-400 hover:text-slate-50"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-4 w-4" /> Sair
+              </Button>
+            </div>
           </SheetContent>
         </Sheet>
       </header>
@@ -139,7 +166,7 @@ export default function Layout() {
       </main>
 
       <nav className="fixed bottom-0 z-30 flex h-16 w-full border-t border-slate-800 bg-[#0b0e14] md:hidden shadow-[0_-2px_10px_rgba(0,0,0,0.5)] overflow-x-auto no-scrollbar">
-        {[...NAV_ITEMS, ...ADMIN_ITEMS].map((item) => {
+        {[...NAV_ITEMS, ...(isAdmin ? ADMIN_ITEMS : [])].map((item) => {
           const isActive = location.pathname === item.href
           return (
             <Link

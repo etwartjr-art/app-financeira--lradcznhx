@@ -1,4 +1,4 @@
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   CreditCard,
@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from '@/components/ui/sheet'
 import logoImg from '@/assets/financas-pessoal-etw-5d9f2.png'
+import { useFinance } from '@/stores/FinanceContext'
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -24,6 +25,13 @@ const ADMIN_ITEMS = [{ href: '/users', label: 'Usuários', icon: Users }]
 
 export default function Layout() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { logout } = useFinance()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/')
+  }
 
   const NavLinks = ({ items }: { items: typeof NAV_ITEMS }) => (
     <>
@@ -49,9 +57,9 @@ export default function Layout() {
   )
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-slate-950 md:flex-row text-slate-50">
-      <aside className="hidden w-64 flex-col border-r border-slate-800 bg-slate-950 md:flex">
-        <div className="flex h-16 items-center gap-3 border-b border-slate-800 px-6">
+    <div className="flex min-h-screen w-full flex-col bg-[#0b0e14] md:flex-row text-slate-50">
+      <aside className="hidden w-64 flex-col border-r border-slate-800 bg-[#0b0e14] md:flex">
+        <div className="flex h-20 items-center gap-3 border-b border-slate-800 px-6">
           <img
             src={logoImg}
             alt="APP FINANÇAS PESSOAL ETW"
@@ -76,17 +84,15 @@ export default function Layout() {
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 text-slate-400 hover:text-slate-50"
-            asChild
+            onClick={handleLogout}
           >
-            <Link to="/">
-              <LogOut className="h-4 w-4" />
-              Sair
-            </Link>
+            <LogOut className="h-4 w-4" />
+            Sair
           </Button>
         </div>
       </aside>
 
-      <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-800 bg-slate-950 px-4 md:hidden">
+      <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-800 bg-[#0b0e14] px-4 md:hidden">
         <div className="flex items-center gap-2">
           <img
             src={logoImg}
@@ -103,7 +109,7 @@ export default function Layout() {
           </SheetTrigger>
           <SheetContent
             side="left"
-            className="flex flex-col bg-slate-950 border-r border-slate-800 p-0 text-slate-50"
+            className="flex flex-col bg-[#0b0e14] border-r border-slate-800 p-0 text-slate-50"
           >
             <SheetHeader className="border-b border-slate-800 p-6 text-left">
               <div className="flex items-center gap-3">
@@ -128,11 +134,11 @@ export default function Layout() {
         </Sheet>
       </header>
 
-      <main className="flex-1 pb-16 md:pb-0 relative bg-slate-900/50">
+      <main className="flex-1 pb-16 md:pb-0 relative bg-[#0b0e14]">
         <Outlet />
       </main>
 
-      <nav className="fixed bottom-0 z-30 flex h-16 w-full border-t border-slate-800 bg-slate-950 md:hidden shadow-[0_-2px_10px_rgba(0,0,0,0.5)] overflow-x-auto no-scrollbar">
+      <nav className="fixed bottom-0 z-30 flex h-16 w-full border-t border-slate-800 bg-[#0b0e14] md:hidden shadow-[0_-2px_10px_rgba(0,0,0,0.5)] overflow-x-auto no-scrollbar">
         {[...NAV_ITEMS, ...ADMIN_ITEMS].map((item) => {
           const isActive = location.pathname === item.href
           return (

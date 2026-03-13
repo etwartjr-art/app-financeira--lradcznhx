@@ -1,344 +1,272 @@
-import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Link } from 'react-router-dom'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
-import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  DollarSign,
-  Wallet,
-  ChevronLeft,
-  ChevronRight,
-  Edit,
-  Plus,
-} from 'lucide-react'
-import { useFinance, type Transaction } from '@/stores/FinanceContext'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { format, addMonths, subMonths } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
-import { cn } from '@/lib/utils'
-import { toast } from '@/hooks/use-toast'
+import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis } from 'recharts'
+import { Wallet, TrendingUp, TrendingDown, PiggyBank, CreditCard } from 'lucide-react'
+import { useFinance } from '@/stores/FinanceContext'
+import { format } from 'date-fns'
 
-const chartData = [
-  { name: 'Jan', total: 1200 },
-  { name: 'Fev', total: 2100 },
-  { name: 'Mar', total: 1800 },
-  { name: 'Abr', total: 2400 },
-  { name: 'Mai', total: 2800 },
-  { name: 'Jun', total: 3200 },
-]
+const InfoCard = ({
+  title,
+  amount,
+  icon: Icon,
+  colorClass,
+  iconBg,
+}: {
+  title: string
+  amount: number
+  icon: any
+  colorClass: string
+  iconBg: string
+}) => (
+  <Card className="bg-[#161925] border-slate-800 shadow-sm hover:border-slate-700 transition-colors">
+    <CardContent className="p-6 flex justify-between items-start">
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-slate-400">{title}</p>
+        <p className="text-2xl font-bold text-white">
+          R$ {amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+        </p>
+      </div>
+      <div className={`p-2 rounded-lg ${iconBg}`}>
+        <Icon className={`w-5 h-5 ${colorClass}`} />
+      </div>
+    </CardContent>
+  </Card>
+)
 
 export default function Dashboard() {
-  const {
-    balance,
-    transactions,
-    currentMonth,
-    setCurrentMonth,
-    setMagicDrawerOpen,
-    updateTransaction,
-  } = useFinance()
-  const [editingTx, setEditingTx] = useState<Transaction | null>(null)
+  const { balance, transactions, cards, currentMonth } = useFinance()
 
-  const filteredTx = transactions.filter((t) => {
+  const currentMonthTx = transactions.filter((t) => {
     const d = new Date(t.date)
     return (
       d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear()
     )
   })
 
-  const receitas = filteredTx
+  const receitas = currentMonthTx
     .filter((t) => t.type === 'income')
     .reduce((acc, t) => acc + t.amount, 0)
-  const despesas = filteredTx
+  const despesas = currentMonthTx
     .filter((t) => t.type === 'expense')
     .reduce((acc, t) => acc + t.amount, 0)
+  const economia = receitas - despesas
 
-  const handleUpdateTx = () => {
-    if (!editingTx) return
-    const val = parseFloat(editingTx.amount.toString())
-    if (isNaN(val) || val <= 0 || !editingTx.description) {
-      toast({ title: 'Preencha os campos corretamente.', variant: 'destructive' })
-      return
-    }
-    updateTransaction(editingTx.id, {
-      amount: val,
-      description: editingTx.description,
-      type: editingTx.type,
-      date: editingTx.date,
-      category: editingTx.category,
-    })
-    setEditingTx(null)
-    toast({ title: 'Transação atualizada!' })
-  }
+  const gerais = currentMonthTx
+    .filter((t) => t.type === 'expense' && !cards.some((c) => c.name === t.origin))
+    .reduce((acc, t) => acc + t.amount, 0)
+  const despesasCartoes = currentMonthTx
+    .filter((t) => t.type === 'expense' && cards.some((c) => c.name === t.origin))
+    .reduce((acc, t) => acc + t.amount, 0)
+
+  const totalConsolidado = gerais + despesasCartoes
+  const percGerais = totalConsolidado ? (gerais / totalConsolidado) * 100 : 0
+  const percCartoes = totalConsolidado ? (despesasCartoes / totalConsolidado) * 100 : 0
+
+  const cardChartData = cards.map((c) => {
+    const used = currentMonthTx
+      .filter((t) => t.type === 'expense' && t.origin === c.name)
+      .reduce((acc, t) => acc + t.amount, 0)
+    return { name: c.name, limit: c.limit, used }
+  })
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-8 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Visão geral e fluxo de caixa.</p>
-        </div>
-
-        <div className="flex items-center justify-between w-full sm:w-auto bg-background rounded-md border p-1 shadow-sm">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div className="font-semibold min-w-[140px] text-center capitalize text-sm">
-            {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+    <div className="flex flex-col gap-6 p-4 md:p-8 animate-fade-in max-w-7xl mx-auto">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-bold tracking-tight text-white">Dashboard</h1>
+        <p className="text-slate-400 text-sm">Visão geral das suas finanças</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Saldo Geral (Caixa)</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">R$ {balance.toFixed(2).replace('.', ',')}</div>
-            <p className="text-xs text-muted-foreground">Base em Dinheiro/PIX</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receitas (Mês)</CardTitle>
-            <ArrowUpIcon className="h-4 w-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">
-              R$ {receitas.toFixed(2).replace('.', ',')}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Despesas (Mês)</CardTitle>
-            <ArrowDownIcon className="h-4 w-4 text-rose-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-rose-600">
-              R$ {despesas.toFixed(2).replace('.', ',')}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Balanço do Mês</CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div
-              className={cn(
-                'text-2xl font-bold',
-                receitas - despesas >= 0 ? 'text-emerald-600' : 'text-rose-600',
-              )}
-            >
-              R$ {(receitas - despesas).toFixed(2).replace('.', ',')}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 md:grid-cols-4">
+        <InfoCard
+          title="Saldo Atual"
+          amount={balance}
+          icon={Wallet}
+          colorClass="text-emerald-500"
+          iconBg="bg-emerald-500/10"
+        />
+        <InfoCard
+          title="Receitas"
+          amount={receitas}
+          icon={TrendingUp}
+          colorClass="text-emerald-500"
+          iconBg="bg-emerald-500/10"
+        />
+        <InfoCard
+          title="Despesas"
+          amount={despesas}
+          icon={TrendingDown}
+          colorClass="text-red-500"
+          iconBg="bg-red-500/10"
+        />
+        <InfoCard
+          title="Economia"
+          amount={economia >= 0 ? economia : 0}
+          icon={PiggyBank}
+          colorClass="text-emerald-500"
+          iconBg="bg-emerald-500/10"
+        />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="lg:col-span-4 hidden md:block">
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="bg-[#161925] border-slate-800 shadow-sm">
           <CardHeader>
-            <CardTitle>Histórico Recente</CardTitle>
-            <CardDescription>Visualização dos últimos 6 meses.</CardDescription>
+            <CardTitle className="text-base text-white font-semibold">Fluxo de Caixa</CardTitle>
           </CardHeader>
-          <CardContent className="pl-0">
-            <ChartContainer
-              config={{ total: { label: 'Total (R$)', color: 'hsl(var(--primary))' } }}
-              className="h-[300px] w-full"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis
-                    dataKey="name"
-                    stroke="#888888"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    stroke="#888888"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => `R$${value}`}
-                  />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Area
-                    type="monotone"
-                    dataKey="total"
-                    stroke="hsl(var(--primary))"
-                    fillOpacity={1}
-                    fill="url(#colorTotal)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </ChartContainer>
+          <CardContent className="h-[200px] flex items-center justify-center text-slate-500 text-sm">
+            Sem dados ainda.
+          </CardContent>
+        </Card>
+        <Card className="bg-[#161925] border-slate-800 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base text-white font-semibold">
+              Despesas por Categoria
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="h-[200px] flex items-center justify-center text-slate-500 text-sm">
+            Sem dados ainda.
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="bg-[#161925] border-slate-800 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base text-white font-semibold">
+              Relatório Geral de Despesas
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex gap-4">
+              <div className="bg-[#0b0e14] p-4 rounded-xl flex-1 border border-slate-800">
+                <p className="text-xs text-slate-400 mb-1 font-medium">Despesas Gerais</p>
+                <p className="text-xl font-bold text-red-500">
+                  R$ {gerais.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="bg-[#0b0e14] p-4 rounded-xl flex-1 border border-slate-800">
+                <p className="text-xs text-slate-400 mb-1 font-medium flex items-center gap-1">
+                  <CreditCard className="w-3 h-3" /> Cartões
+                </p>
+                <p className="text-xl font-bold text-amber-500">
+                  R$ {despesasCartoes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm items-end">
+                <span className="text-slate-400 font-medium">Total Consolidado</span>
+                <span className="font-bold text-white text-lg">
+                  R$ {totalConsolidado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="h-3 flex rounded-full overflow-hidden bg-slate-800">
+                <div style={{ width: `${percGerais}%` }} className="bg-red-500 transition-all" />
+                <div style={{ width: `${percCartoes}%` }} className="bg-amber-500 transition-all" />
+              </div>
+              <div className="flex justify-between text-xs text-slate-500 uppercase tracking-wider font-semibold">
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-red-500"></span> Gerais
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-amber-500"></span> Cartões
+                </span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-3">
-          <CardHeader className="flex flex-row items-start justify-between pb-4">
-            <div>
-              <CardTitle>Transações - {format(currentMonth, 'MMMM', { locale: ptBR })}</CardTitle>
-              <CardDescription>Lançamentos no mês selecionado.</CardDescription>
-            </div>
-            <Button size="sm" onClick={() => setMagicDrawerOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" /> Nova
-            </Button>
+        <Card className="bg-[#161925] border-slate-800 shadow-sm flex flex-col">
+          <CardHeader>
+            <CardTitle className="text-base text-white font-semibold flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-emerald-500" /> Despesas por Cartão
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            {filteredTx.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                Nenhuma transação neste mês.
-              </p>
-            ) : (
-              <div className="space-y-6">
-                {filteredTx.map((t) => (
-                  <div
-                    key={t.id}
-                    className="flex items-center gap-4 border-b pb-4 last:border-0 last:pb-0 group"
+          <CardContent className="flex-1 flex flex-col min-h-[250px]">
+            {cardChartData.length > 0 ? (
+              <ChartContainer
+                config={{
+                  used: { label: 'Usado', color: 'hsl(var(--destructive))' },
+                  limit: { label: 'Limite', color: '#1e293b' },
+                }}
+                className="h-full w-full"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={cardChartData}
+                    layout="vertical"
+                    margin={{ top: 0, right: 0, left: -20, bottom: 0 }}
                   >
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted">
-                      {t.type === 'income' ? (
-                        <ArrowUpIcon className="h-4 w-4 text-emerald-500" />
-                      ) : (
-                        <ArrowDownIcon className="h-4 w-4 text-rose-500" />
-                      )}
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-none">{t.description}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{format(new Date(t.date), 'dd/MM/yyyy')}</span> •{' '}
-                        <span>{t.origin}</span> • <span>{t.category}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={cn(
-                          'font-medium whitespace-nowrap',
-                          t.type === 'income' ? 'text-emerald-600' : 'text-rose-600',
-                        )}
-                      >
-                        {t.type === 'income' ? '+' : '-'} R$ {t.amount.toFixed(2).replace('.', ',')}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => setEditingTx(t)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                    <XAxis type="number" hide />
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      stroke="#888"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="limit" stackId="a" fill="#1e293b" radius={[4, 4, 4, 4]} />
+                    <Bar
+                      dataKey="used"
+                      stackId="b"
+                      fill="#ef4444"
+                      radius={[4, 4, 4, 4]}
+                      style={{ transform: 'translateY(-100%)' }}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
+                Nenhum cartão cadastrado.
               </div>
             )}
           </CardContent>
         </Card>
       </div>
 
-      <Dialog open={!!editingTx} onOpenChange={(o) => !o && setEditingTx(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar Transação</DialogTitle>
-          </DialogHeader>
-          {editingTx && (
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Tipo</Label>
-                <Select
-                  value={editingTx.type}
-                  onValueChange={(v: 'income' | 'expense') =>
-                    setEditingTx({ ...editingTx, type: v })
-                  }
+      <Card className="bg-[#161925] border-slate-800 shadow-sm mt-2">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-base text-white font-semibold">Transações Recentes</CardTitle>
+          <Link
+            to="/transactions"
+            className="text-sm font-medium text-emerald-500 hover:text-emerald-400 transition-colors"
+          >
+            Ver todas
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {transactions.length === 0 ? (
+            <div className="text-sm text-slate-500 text-center py-8">
+              Nenhuma transação registrada ainda.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {transactions.slice(0, 5).map((t) => (
+                <div
+                  key={t.id}
+                  className="flex justify-between items-center py-2 border-b border-slate-800/50 last:border-0"
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="expense">Despesa</SelectItem>
-                    <SelectItem value="income">Receita</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Valor</Label>
-                <Input
-                  type="number"
-                  value={editingTx.amount}
-                  onChange={(e) => setEditingTx({ ...editingTx, amount: Number(e.target.value) })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Descrição</Label>
-                <Input
-                  value={editingTx.description}
-                  onChange={(e) => setEditingTx({ ...editingTx, description: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Data</Label>
-                <Input
-                  type="date"
-                  value={editingTx.date.split('T')[0]}
-                  onChange={(e) =>
-                    setEditingTx({ ...editingTx, date: new Date(e.target.value).toISOString() })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Categoria</Label>
-                <Input
-                  value={editingTx.category}
-                  onChange={(e) => setEditingTx({ ...editingTx, category: e.target.value })}
-                />
-              </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-200">{t.description}</p>
+                    <p className="text-xs text-slate-500">
+                      {format(new Date(t.date), 'dd/MM/yyyy')} • {t.origin}
+                    </p>
+                  </div>
+                  <div
+                    className={`font-semibold ${t.type === 'income' ? 'text-emerald-500' : 'text-slate-300'}`}
+                  >
+                    {t.type === 'income' ? '+' : '-'} R${' '}
+                    {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
-          <DialogFooter>
-            <Button onClick={handleUpdateTx}>Salvar Alterações</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </CardContent>
+      </Card>
     </div>
   )
 }

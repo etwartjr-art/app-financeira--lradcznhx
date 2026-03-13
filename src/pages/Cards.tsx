@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
+import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -25,76 +26,74 @@ import { format } from 'date-fns'
 import { toast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 
-const CARD_COLORS = ['#8a05be', '#1d4ed8', '#3f3f46', '#059669', '#ea580c', '#d97706']
-
 export default function Cards() {
-  const { cards, addCard, updateCard, deleteCard, transactions, currentMonth } = useFinance()
-
+  const { cards, addCard, updateCard, deleteCard, transactions, currentMonth, addTransaction } =
+    useFinance()
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [editingCard, setEditingCard] = useState<CardType | null>(null)
+  const [expenseCard, setExpenseCard] = useState<CardType | null>(null)
 
+  const [newExp, setNewExp] = useState({
+    description: '',
+    amount: '',
+    date: new Date().toISOString().split('T')[0],
+    tags: '',
+  })
   const [newCard, setNewCard] = useState({
     name: '',
     last4: '',
-    status: 'Aberta' as 'Aberta' | 'Fechada' | 'Atrasada',
+    status: 'Aberta' as const,
     limit: '',
-    used: '',
     closingDate: new Date().toISOString().split('T')[0],
     dueDate: new Date().toISOString().split('T')[0],
-    color: CARD_COLORS[0],
   })
 
   const handleSaveCard = () => {
     const limitNum = parseFloat(newCard.limit)
-    const usedNum = parseFloat(newCard.used) || 0
-    if (!newCard.name || isNaN(limitNum)) {
-      return toast({
-        title: 'Preencha os campos obrigatórios corretamente.',
-        variant: 'destructive',
-      })
-    }
+    if (!newCard.name || isNaN(limitNum))
+      return toast({ title: 'Preencha corretamente.', variant: 'destructive' })
     addCard({
       name: newCard.name,
       type: 'Crédito',
       last4: newCard.last4 || '0000',
       limit: limitNum,
-      used: usedNum,
-      color: newCard.color,
+      used: 0,
+      color: '#ff7800',
       closingDate: newCard.closingDate,
       dueDate: newCard.dueDate,
       status: newCard.status,
     })
     setIsAddOpen(false)
-    setNewCard({
-      name: '',
-      last4: '',
-      status: 'Aberta',
-      limit: '',
-      used: '',
-      closingDate: new Date().toISOString().split('T')[0],
-      dueDate: new Date().toISOString().split('T')[0],
-      color: CARD_COLORS[0],
-    })
-    toast({ title: 'Cartão adicionado com sucesso!' })
+    toast({ title: 'Cartão adicionado!' })
   }
 
   const handleUpdateCard = () => {
     if (!editingCard) return
-    const limitNum = parseFloat(editingCard.limit.toString())
-    if (!editingCard.name || isNaN(limitNum)) {
-      return toast({
-        title: 'Preencha os campos obrigatórios corretamente.',
-        variant: 'destructive',
-      })
-    }
     updateCard(editingCard.id, editingCard)
     setEditingCard(null)
-    toast({ title: 'Cartão atualizado com sucesso!' })
+    toast({ title: 'Cartão atualizado!' })
   }
 
-  const handleDeleteCard = (id: string) => {
-    deleteCard(id)
-    toast({ title: 'Cartão removido.' })
+  const handleAddExpense = () => {
+    if (!expenseCard || !newExp.description || !newExp.amount)
+      return toast({ title: 'Preencha os campos obrigatórios.', variant: 'destructive' })
+    addTransaction({
+      description: newExp.description,
+      amount: Number(newExp.amount),
+      type: 'expense',
+      category: 'Outros',
+      origin: expenseCard.name,
+      date: new Date(newExp.date).toISOString(),
+      tags: newExp.tags,
+    })
+    setExpenseCard(null)
+    setNewExp({
+      description: '',
+      amount: '',
+      date: new Date().toISOString().split('T')[0],
+      tags: '',
+    })
+    toast({ title: 'Despesa vinculada ao cartão com sucesso!' })
   }
 
   return (
@@ -104,7 +103,6 @@ export default function Cards() {
           <h1 className="text-2xl font-bold tracking-tight text-white">Cartões de Crédito</h1>
           <p className="text-slate-400">Gerencie seus cartões e faturas</p>
         </div>
-
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger asChild>
             <Button className="bg-[#0f766e] hover:bg-[#0f766e]/90 text-white rounded-lg">
@@ -117,118 +115,65 @@ export default function Cards() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label className="text-slate-300">Nome do Cartão</Label>
+                <Label>Instituição</Label>
                 <Input
-                  className="bg-[#0f111a] border-slate-700 focus-visible:ring-[#0f766e]"
+                  className="bg-[#0b0e14] border-slate-700"
                   value={newCard.name}
                   onChange={(e) => setNewCard({ ...newCard, name: e.target.value })}
-                  placeholder="Ex: Nubank Platinum"
+                  placeholder="Ex: Itau"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-slate-300">Últimos 4 dígitos</Label>
+                  <Label>Últimos 4 dígitos</Label>
                   <Input
-                    className="bg-[#0f111a] border-slate-700 focus-visible:ring-[#0f766e]"
+                    className="bg-[#0b0e14] border-slate-700"
                     value={newCard.last4}
                     onChange={(e) => setNewCard({ ...newCard, last4: e.target.value })}
-                    placeholder="0000"
                     maxLength={4}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-300">Status</Label>
-                  <Select
-                    value={newCard.status}
-                    onValueChange={(v: any) => setNewCard({ ...newCard, status: v })}
-                  >
-                    <SelectTrigger className="bg-[#0f111a] border-slate-700 focus:ring-[#0f766e]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#161925] border-slate-700 text-slate-100">
-                      <SelectItem value="Aberta">Aberta</SelectItem>
-                      <SelectItem value="Fechada">Fechada</SelectItem>
-                      <SelectItem value="Atrasada">Atrasada</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-slate-300">Limite (R$)</Label>
+                  <Label>Limite (R$)</Label>
                   <Input
                     type="number"
-                    className="bg-[#0f111a] border-slate-700 focus-visible:ring-[#0f766e]"
+                    className="bg-[#0b0e14] border-slate-700"
                     value={newCard.limit}
                     onChange={(e) => setNewCard({ ...newCard, limit: e.target.value })}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-slate-300">Gasto Atual (R$)</Label>
-                  <Input
-                    type="number"
-                    className="bg-[#0f111a] border-slate-700 focus-visible:ring-[#0f766e]"
-                    value={newCard.used}
-                    onChange={(e) => setNewCard({ ...newCard, used: e.target.value })}
-                    placeholder="0"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-slate-300">Data Fechamento</Label>
-                  <div className="relative">
-                    <Input
-                      type="date"
-                      className="bg-[#0f111a] border-slate-700 focus-visible:ring-[#0f766e]"
-                      value={newCard.closingDate}
-                      onChange={(e) => setNewCard({ ...newCard, closingDate: e.target.value })}
-                    />
-                  </div>
+                  <Label>Data Fechamento</Label>
+                  <Input
+                    type="date"
+                    className="bg-[#0b0e14] border-slate-700"
+                    value={newCard.closingDate}
+                    onChange={(e) => setNewCard({ ...newCard, closingDate: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-300">Data Vencimento</Label>
-                  <div className="relative">
-                    <Input
-                      type="date"
-                      className="bg-[#0f111a] border-slate-700 focus-visible:ring-[#0f766e]"
-                      value={newCard.dueDate}
-                      onChange={(e) => setNewCard({ ...newCard, dueDate: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-slate-300">Cor do Cartão</Label>
-                <div className="flex gap-3">
-                  {CARD_COLORS.map((color) => (
-                    <button
-                      key={color}
-                      className={cn(
-                        'w-8 h-8 rounded-full border-2 transition-transform hover:scale-110',
-                        newCard.color === color ? 'border-white' : 'border-transparent',
-                      )}
-                      style={{ backgroundColor: color }}
-                      onClick={() => setNewCard({ ...newCard, color })}
-                    />
-                  ))}
+                  <Label>Data Vencimento</Label>
+                  <Input
+                    type="date"
+                    className="bg-[#0b0e14] border-slate-700"
+                    value={newCard.dueDate}
+                    onChange={(e) => setNewCard({ ...newCard, dueDate: e.target.value })}
+                  />
                 </div>
               </div>
             </div>
-            <DialogFooter className="gap-2 sm:gap-0">
+            <DialogFooter>
               <Button
                 variant="outline"
-                className="bg-transparent border-slate-700 text-white hover:bg-slate-800"
                 onClick={() => setIsAddOpen(false)}
+                className="bg-transparent border-slate-700 text-white hover:bg-slate-800"
               >
                 Cancelar
               </Button>
-              <Button
-                className="bg-[#0f766e] hover:bg-[#0f766e]/90 text-white"
-                onClick={handleSaveCard}
-              >
-                Criar Cartão
+              <Button className="bg-[#0f766e] text-white" onClick={handleSaveCard}>
+                Salvar
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -237,17 +182,15 @@ export default function Cards() {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {cards.map((card) => {
-          // Dynamic calculation based on transactions linked to this card for current month
-          const cardTransactions = transactions.filter(
-            (t) =>
-              t.origin === card.name &&
-              t.type === 'expense' &&
-              new Date(t.date).getMonth() === currentMonth.getMonth() &&
-              new Date(t.date).getFullYear() === currentMonth.getFullYear(),
-          )
-
-          const usedThisMonth = cardTransactions.reduce((acc, t) => acc + t.amount, 0)
-          // Fallback to manual 'used' if no transactions found, or always use dynamic? Real-time totals requested.
+          const usedThisMonth = transactions
+            .filter(
+              (t) =>
+                t.origin === card.name &&
+                t.type === 'expense' &&
+                new Date(t.date).getMonth() === currentMonth.getMonth() &&
+                new Date(t.date).getFullYear() === currentMonth.getFullYear(),
+            )
+            .reduce((acc, t) => acc + t.amount, 0)
           const activeUsed = usedThisMonth > 0 ? usedThisMonth : card.used
           const perc = Math.min((activeUsed / card.limit) * 100, 100)
           const available = Math.max(0, card.limit - activeUsed)
@@ -255,100 +198,82 @@ export default function Cards() {
           return (
             <div
               key={card.id}
-              className="flex flex-col gap-0 rounded-2xl border border-slate-800 bg-[#161925] text-slate-100 shadow-md overflow-hidden animate-fade-in-up hover:border-slate-700 transition-colors"
+              className="flex flex-col rounded-2xl bg-[#161925] border border-slate-800 text-slate-100 shadow-lg relative overflow-hidden transition-transform hover:-translate-y-1"
             >
-              <div
-                className="relative p-5 h-48 flex flex-col justify-between"
-                style={{ backgroundColor: card.color }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-black/10 to-black/50 pointer-events-none" />
-                <div className="relative z-10 flex justify-between items-start">
-                  <CardIcon className="h-8 w-8 text-white/80" />
-                  <div className="flex items-center gap-1 bg-black/20 rounded-md px-2 py-1 backdrop-blur-sm">
-                    <span
-                      className={cn(
-                        'w-2 h-2 rounded-full',
-                        card.status === 'Aberta'
-                          ? 'bg-emerald-400'
-                          : card.status === 'Fechada'
-                            ? 'bg-orange-400'
-                            : 'bg-red-400',
-                      )}
-                    />
-                    <span className="text-[10px] font-medium text-white/90">{card.status}</span>
-                  </div>
-                </div>
-
-                <div className="relative z-10 space-y-1 mt-auto">
-                  <div className="flex items-center tracking-widest text-lg font-mono text-white/90 gap-3 opacity-80">
-                    <span>••••</span>
-                    <span>••••</span>
-                    <span>••••</span>
-                    <span>{card.last4}</span>
-                  </div>
-                  <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
-                    {card.name}
-                  </h3>
-                </div>
-              </div>
-
-              <div className="p-5 space-y-4 bg-[#161925]">
-                <div className="flex justify-between items-end">
-                  <div className="space-y-1 w-full">
-                    <div className="flex justify-between text-xs text-slate-400 font-medium">
-                      <span>Utilizado</span>
-                      <span>{perc.toFixed(0)}% usado</span>
-                    </div>
-                    <Progress value={perc} className="h-1.5 bg-slate-800 [&>div]:bg-[#0f766e]" />
-                  </div>
-                </div>
-
-                <div className="flex justify-between text-xs text-slate-400 font-medium">
-                  <span className="flex items-center gap-1">
-                    <CalendarDays className="w-3 h-3" /> Fecha:{' '}
-                    {format(new Date(card.closingDate), 'dd/MM/yyyy')}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <CalendarDays className="w-3 h-3" /> Vence:{' '}
-                    {format(new Date(card.dueDate), 'dd/MM/yyyy')}
-                  </span>
-                </div>
-
-                <div className="pt-2 border-t border-slate-800 flex justify-between items-center">
-                  <div>
-                    <p className="text-[10px] text-slate-500 uppercase tracking-wider">
-                      Disponível
-                    </p>
-                    <p className="text-lg font-bold text-[#10b981]">
-                      R$ {available.toFixed(2).replace('.', ',')}
-                    </p>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-800"
+              <div className="p-5 flex flex-col gap-4">
+                <div className="flex justify-between items-start">
+                  <CardIcon className="w-8 h-8 text-slate-400" />
+                  <div className="flex items-center gap-2">
+                    <button
                       onClick={() => setEditingCard(card)}
+                      className="hover:bg-slate-800 p-1 rounded"
                     >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-slate-400 hover:text-red-400 hover:bg-red-400/10"
-                      onClick={() => handleDeleteCard(card.id)}
+                      <Edit2 className="w-4 h-4 text-slate-400" />
+                    </button>
+                    <button
+                      onClick={() => deleteCard(card.id)}
+                      className="hover:bg-red-500/20 p-1 rounded"
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                      <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-400" />
+                    </button>
+                    <Badge className="bg-amber-500/10 text-amber-500 border-none font-medium px-2 py-0.5">
+                      {card.status}
+                    </Badge>
                   </div>
                 </div>
+                <div className="space-y-1 mt-2">
+                  <p className="text-lg tracking-widest font-mono text-slate-300 opacity-80">
+                    •••• •••• •••• {card.last4}
+                  </p>
+                  <p className="text-sm font-semibold uppercase text-slate-400">{card.name}</p>
+                </div>
+
+                <div className="space-y-2 mt-4 border-t border-slate-800 pt-5">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-400">Utilizado</span>
+                    <span className="font-bold text-white">
+                      R$ {activeUsed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-[10px] text-slate-500 font-medium uppercase tracking-wider">
+                    <span>{perc.toFixed(0)}% usado</span>
+                    <span>Limite: R$ {card.limit.toLocaleString('pt-BR')}</span>
+                  </div>
+                  <Progress value={perc} className="h-1.5 bg-slate-800 [&>div]:bg-amber-500" />
+                </div>
+
+                <div className="flex justify-between text-xs text-slate-500 mt-2 font-medium">
+                  <span className="flex items-center">
+                    <CalendarDays className="w-3 h-3 mr-1" /> Fecha: {card.closingDate}
+                  </span>
+                  <span className="flex items-center">
+                    <CalendarDays className="w-3 h-3 mr-1" /> Vence: {card.dueDate}
+                  </span>
+                </div>
+
+                <div className="bg-[#0b0e14] rounded-xl p-3 flex flex-col mt-2 border border-slate-800/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
+                    Disponível
+                  </span>
+                  <span className="text-xl font-bold text-emerald-500">
+                    R$ {available.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                <Button
+                  variant="outline"
+                  className="w-full mt-2 bg-transparent border-slate-700 hover:bg-slate-800 text-slate-300 transition-colors"
+                  onClick={() => setExpenseCard(card)}
+                >
+                  Adicionar Despesa
+                </Button>
               </div>
             </div>
           )
         })}
       </div>
 
-      <Dialog open={!!editingCard} onOpenChange={(open) => !open && setEditingCard(null)}>
+      <Dialog open={!!editingCard} onOpenChange={(o) => !o && setEditingCard(null)}>
         <DialogContent className="bg-[#161925] border-slate-800 text-slate-100 sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-white">Editar Cartão</DialogTitle>
@@ -356,46 +281,19 @@ export default function Cards() {
           {editingCard && (
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label className="text-slate-300">Nome do Cartão</Label>
+                <Label>Instituição</Label>
                 <Input
-                  className="bg-[#0f111a] border-slate-700 focus-visible:ring-[#0f766e]"
+                  className="bg-[#0b0e14] border-slate-700"
                   value={editingCard.name}
                   onChange={(e) => setEditingCard({ ...editingCard, name: e.target.value })}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-slate-300">Últimos 4 dígitos</Label>
-                  <Input
-                    className="bg-[#0f111a] border-slate-700 focus-visible:ring-[#0f766e]"
-                    value={editingCard.last4}
-                    onChange={(e) => setEditingCard({ ...editingCard, last4: e.target.value })}
-                    maxLength={4}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-slate-300">Status</Label>
-                  <Select
-                    value={editingCard.status}
-                    onValueChange={(v: any) => setEditingCard({ ...editingCard, status: v })}
-                  >
-                    <SelectTrigger className="bg-[#0f111a] border-slate-700 focus:ring-[#0f766e]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#161925] border-slate-700 text-slate-100">
-                      <SelectItem value="Aberta">Aberta</SelectItem>
-                      <SelectItem value="Fechada">Fechada</SelectItem>
-                      <SelectItem value="Atrasada">Atrasada</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-slate-300">Limite Total (R$)</Label>
+                  <Label>Limite (R$)</Label>
                   <Input
                     type="number"
-                    className="bg-[#0f111a] border-slate-700 focus-visible:ring-[#0f766e]"
+                    className="bg-[#0b0e14] border-slate-700"
                     value={editingCard.limit}
                     onChange={(e) =>
                       setEditingCard({ ...editingCard, limit: Number(e.target.value) })
@@ -403,23 +301,27 @@ export default function Cards() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-300">Gasto Atual (R$)</Label>
-                  <Input
-                    type="number"
-                    className="bg-[#0f111a] border-slate-700 focus-visible:ring-[#0f766e]"
-                    value={editingCard.used}
-                    onChange={(e) =>
-                      setEditingCard({ ...editingCard, used: Number(e.target.value) })
-                    }
-                  />
+                  <Label>Status</Label>
+                  <Select
+                    value={editingCard.status}
+                    onValueChange={(v: any) => setEditingCard({ ...editingCard, status: v })}
+                  >
+                    <SelectTrigger className="bg-[#0b0e14] border-slate-700">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#161925] border-slate-700 text-slate-100">
+                      <SelectItem value="Aberta">Aberta</SelectItem>
+                      <SelectItem value="Fechada">Fechada</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-slate-300">Data Fechamento</Label>
+                  <Label>Data Fechamento</Label>
                   <Input
                     type="date"
-                    className="bg-[#0f111a] border-slate-700 focus-visible:ring-[#0f766e]"
+                    className="bg-[#0b0e14] border-slate-700"
                     value={editingCard.closingDate}
                     onChange={(e) =>
                       setEditingCard({ ...editingCard, closingDate: e.target.value })
@@ -427,46 +329,86 @@ export default function Cards() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-300">Data Vencimento</Label>
+                  <Label>Data Vencimento</Label>
                   <Input
                     type="date"
-                    className="bg-[#0f111a] border-slate-700 focus-visible:ring-[#0f766e]"
+                    className="bg-[#0b0e14] border-slate-700"
                     value={editingCard.dueDate}
                     onChange={(e) => setEditingCard({ ...editingCard, dueDate: e.target.value })}
                   />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label className="text-slate-300">Cor do Cartão</Label>
-                <div className="flex gap-3">
-                  {CARD_COLORS.map((color) => (
-                    <button
-                      key={color}
-                      className={cn(
-                        'w-8 h-8 rounded-full border-2 transition-transform hover:scale-110',
-                        editingCard.color === color ? 'border-white' : 'border-transparent',
-                      )}
-                      style={{ backgroundColor: color }}
-                      onClick={() => setEditingCard({ ...editingCard, color })}
-                    />
-                  ))}
-                </div>
-              </div>
             </div>
           )}
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter>
             <Button
               variant="outline"
-              className="bg-transparent border-slate-700 text-white hover:bg-slate-800"
               onClick={() => setEditingCard(null)}
+              className="bg-transparent border-slate-700 text-white hover:bg-slate-800"
             >
               Cancelar
             </Button>
+            <Button className="bg-[#0f766e] text-white" onClick={handleUpdateCard}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!expenseCard} onOpenChange={(o) => !o && setExpenseCard(null)}>
+        <DialogContent className="bg-[#161925] border-slate-800 text-slate-100 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white">Adicionar Despesa: {expenseCard?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Descrição</Label>
+              <Input
+                className="bg-[#0b0e14] border-slate-700"
+                value={newExp.description}
+                onChange={(e) => setNewExp({ ...newExp, description: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Valor (R$)</Label>
+                <Input
+                  type="number"
+                  className="bg-[#0b0e14] border-slate-700"
+                  value={newExp.amount}
+                  onChange={(e) => setNewExp({ ...newExp, amount: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Data</Label>
+                <Input
+                  type="date"
+                  className="bg-[#0b0e14] border-slate-700"
+                  value={newExp.date}
+                  onChange={(e) => setNewExp({ ...newExp, date: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Tags</Label>
+              <Input
+                className="bg-[#0b0e14] border-slate-700"
+                placeholder="Ex: ifood, almoço"
+                value={newExp.tags}
+                onChange={(e) => setNewExp({ ...newExp, tags: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
             <Button
-              className="bg-[#0f766e] hover:bg-[#0f766e]/90 text-white"
-              onClick={handleUpdateCard}
+              variant="outline"
+              onClick={() => setExpenseCard(null)}
+              className="bg-transparent border-slate-700 text-white hover:bg-slate-800"
             >
-              Salvar Alterações
+              Cancelar
+            </Button>
+            <Button className="bg-red-500 hover:bg-red-600 text-white" onClick={handleAddExpense}>
+              Salvar Despesa
             </Button>
           </DialogFooter>
         </DialogContent>

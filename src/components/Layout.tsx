@@ -1,8 +1,18 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { LayoutDashboard, CreditCard, ArrowRightLeft, Settings, LogOut, Menu } from 'lucide-react'
+import {
+  LayoutDashboard,
+  CreditCard,
+  ArrowRightLeft,
+  Settings,
+  LogOut,
+  Menu,
+  Plus,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from '@/components/ui/sheet'
+import { MagicEntryDrawer } from '@/components/MagicEntryDrawer'
+import { useFinance } from '@/stores/FinanceContext'
 import logoImg from '@/assets/financas-pessoal-etw-5d9f2.png'
 
 const NAV_ITEMS = [
@@ -14,10 +24,10 @@ const NAV_ITEMS = [
 
 export default function Layout() {
   const location = useLocation()
+  const { setMagicDrawerOpen } = useFinance()
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/20 md:flex-row">
-      {/* Desktop Sidebar */}
       <aside className="hidden w-64 flex-col border-r bg-background md:flex">
         <div className="flex h-16 items-center gap-2 border-b px-6">
           <img src={logoImg} alt="APP FINANÇAS PESSOAL ETW" className="h-8 w-8 object-contain" />
@@ -57,14 +67,9 @@ export default function Layout() {
         </div>
       </aside>
 
-      {/* Mobile Top Header */}
       <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b bg-background px-4 md:hidden">
         <div className="flex items-center gap-2">
-          <img
-            src={logoImg}
-            alt="APP FINANÇAS PESSOAL ETW Logo"
-            className="h-8 w-8 object-contain"
-          />
+          <img src={logoImg} alt="Logo" className="h-8 w-8 object-contain" />
           <span className="font-bold text-xs leading-tight sm:text-sm">
             APP FINANÇAS
             <br />
@@ -75,17 +80,12 @@ export default function Layout() {
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon">
               <Menu className="h-5 w-5" />
-              <span className="sr-only">Toggle menu</span>
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="flex flex-col">
             <SheetHeader className="border-b pb-4 text-left">
               <div className="flex items-center gap-2">
-                <img
-                  src={logoImg}
-                  alt="APP FINANÇAS PESSOAL ETW Logo"
-                  className="h-10 w-10 object-contain"
-                />
+                <img src={logoImg} alt="Logo" className="h-10 w-10 object-contain" />
                 <SheetTitle className="text-sm font-bold leading-tight">
                   APP FINANÇAS
                   <br />
@@ -113,24 +113,14 @@ export default function Layout() {
                 )
               })}
             </nav>
-            <div className="border-t pt-4">
-              <Button variant="ghost" className="w-full justify-start gap-3" asChild>
-                <Link to="/">
-                  <LogOut className="h-5 w-5" />
-                  Sair
-                </Link>
-              </Button>
-            </div>
           </SheetContent>
         </Sheet>
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 pb-16 md:pb-0">
+      <main className="flex-1 pb-16 md:pb-0 relative">
         <Outlet />
       </main>
 
-      {/* Mobile Bottom Navigation */}
       <nav className="fixed bottom-0 z-30 flex h-16 w-full border-t bg-background md:hidden shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
         {NAV_ITEMS.map((item) => {
           const isActive = location.pathname === item.href
@@ -149,6 +139,19 @@ export default function Layout() {
           )
         })}
       </nav>
+
+      {/* Global FAB (Magic Button) */}
+      <div className="fixed bottom-20 right-4 z-40 md:bottom-8 md:right-8">
+        <Button
+          size="icon"
+          className="h-14 w-14 rounded-full shadow-2xl bg-primary hover:bg-primary/90 text-primary-foreground transition-transform hover:scale-105 active:scale-95"
+          onClick={() => setMagicDrawerOpen(true)}
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      </div>
+
+      <MagicEntryDrawer />
     </div>
   )
 }

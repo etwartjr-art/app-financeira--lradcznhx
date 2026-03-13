@@ -14,6 +14,7 @@ export type Transaction = {
 export type Card = {
   id: string
   name: string
+  type: string
   color: string
   limit: number
   used: number
@@ -23,30 +24,31 @@ export type Card = {
 
 type FinanceContextType = {
   isLoggedIn: boolean
-  subscriptionStatus: 'active' | 'pending'
   balance: number
   transactions: Transaction[]
   cards: Card[]
   isMagicDrawerOpen: boolean
+  currentMonth: Date
+  setCurrentMonth: (date: Date) => void
   login: () => void
-  renewSubscription: () => void
   setMagicDrawerOpen: (open: boolean) => void
-  addTransaction: (tx: Omit<Transaction, 'id' | 'date'>) => void
-  resolvePending: (id: string, newCategory?: string) => void
+  addTransaction: (tx: Omit<Transaction, 'id'>) => void
+  addCard: (card: Omit<Card, 'id'>) => void
 }
 
 const FinanceContext = createContext<FinanceContextType | null>(null)
 
 export const FinanceProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [subscriptionStatus, setSubscriptionStatus] = useState<'active' | 'pending'>('pending')
   const [isMagicDrawerOpen, setMagicDrawerOpen] = useState(false)
   const [balance, setBalance] = useState(12450.5)
+  const [currentMonth, setCurrentMonth] = useState(new Date())
 
-  const [cards] = useState<Card[]>([
+  const [cards, setCards] = useState<Card[]>([
     {
       id: '1',
       name: 'Nubank',
+      type: 'Mastercard',
       color: '#8a05be',
       limit: 5000,
       used: 4200,
@@ -56,6 +58,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     {
       id: '2',
       name: 'Itaú',
+      type: 'Visa',
       color: '#ff7800',
       limit: 10000,
       used: 1500,
@@ -79,79 +82,64 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       amount: 5000.0,
       description: 'Salário',
       type: 'income',
-      date: new Date(Date.now() - 86400000).toISOString(),
-      origin: 'Conta Corrente',
+      date: new Date().toISOString(),
+      origin: 'Dinheiro',
       category: 'Renda',
     },
     {
       id: 't3',
-      amount: 1500.0,
-      description: 'Fatura Cartão Nubank',
-      type: 'expense',
-      date: new Date(Date.now() - 86400000 * 2).toISOString(),
-      origin: 'Conta Corrente',
-      category: 'Cartão',
-    },
-    {
-      id: 'p1',
-      amount: 39.9,
-      description: 'PAG*MERCADOLIVRE',
+      amount: 150.0,
+      description: 'Supermercado',
       type: 'expense',
       date: new Date().toISOString(),
-      origin: 'Cartão Roxinho',
-      category: 'Compras',
-      isPending: true,
-    },
-    {
-      id: 'p2',
-      amount: 15.0,
-      description: 'UBER*TRIP',
-      type: 'expense',
-      date: new Date().toISOString(),
-      origin: 'Cartão Roxinho',
-      category: 'Transporte',
-      isPending: true,
+      origin: 'Nubank',
+      category: 'Alimentação',
     },
   ])
 
   const login = () => setIsLoggedIn(true)
-  const renewSubscription = () => setSubscriptionStatus('active')
 
-  const addTransaction = (tx: Omit<Transaction, 'id' | 'date'>) => {
-    const newTx: Transaction = {
-      ...tx,
-      id: Math.random().toString(),
-      date: new Date().toISOString(),
-    }
-    setTransactions((prev) => [newTx, ...prev])
-    if (tx.origin !== 'Cartão Roxinho' && tx.origin !== 'Cartão Black') {
-      setBalance((prev) => (tx.type === 'income' ? prev + tx.amount : prev - tx.amount))
-    }
+  const addCard = (card: Omit<Card, 'id'>) => {
+    setCards((prev) => [...prev, { ...card, id: Math.random().toString() }])
   }
 
-  const resolvePending = (id: string, newCategory?: string) => {
-    setTransactions((prev) =>
-      prev.map((t) =>
-        t.id === id ? { ...t, isPending: false, category: newCategory || t.category } : t,
-      ),
-    )
+  const addTransaction = (tx: Omit<Transaction, 'id'>) => {
+    const newTx: Transaction = { ...tx, id: Math.random().toString() }
+    setTransactions((prev) => [newTx, ...prev])
+
+    const isCard = cards.some((c) => c.name === tx.origin)
+    if (isCard) {
+      if (tx.type === 'expense') {
+        setCards((prev) =>
+          prev.map((c) => (c.name === tx.origin ? { ...c, used: c.used + tx.amount } : c)),
+        )
+      } else {
+        setCards((prev) =>
+          prev.map((c) =>
+            c.name === tx.origin ? { ...c, used: Math.max(0, c.used - tx.amount) } : c,
+          ),
+        )
+      }
+    } else {
+      setBalance((prev) => (tx.type === 'income' ? prev + tx.amount : prev - tx.amount))
+    }
   }
 
   const value = useMemo(
     () => ({
       isLoggedIn,
-      subscriptionStatus,
       balance,
       transactions,
       cards,
       isMagicDrawerOpen,
+      currentMonth,
+      setCurrentMonth,
       login,
-      renewSubscription,
       setMagicDrawerOpen,
       addTransaction,
-      resolvePending,
+      addCard,
     }),
-    [isLoggedIn, subscriptionStatus, balance, transactions, cards, isMagicDrawerOpen],
+    [isLoggedIn, balance, transactions, cards, isMagicDrawerOpen, currentMonth],
   )
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>

@@ -1,7 +1,18 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
-import { ArrowDownIcon, ArrowUpIcon, DollarSign, Wallet } from 'lucide-react'
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  DollarSign,
+  Wallet,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react'
+import { useFinance } from '@/stores/FinanceContext'
+import { Button } from '@/components/ui/button'
+import { format, addMonths, subMonths } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 
 const chartData = [
   { name: 'Jan', total: 1200 },
@@ -13,61 +24,107 @@ const chartData = [
 ]
 
 export default function Dashboard() {
+  const { balance, transactions, currentMonth, setCurrentMonth } = useFinance()
+
+  const filteredTx = transactions.filter((t) => {
+    const d = new Date(t.date)
+    return (
+      d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear()
+    )
+  })
+
+  const receitas = filteredTx
+    .filter((t) => t.type === 'income')
+    .reduce((acc, t) => acc + t.amount, 0)
+  const despesas = filteredTx
+    .filter((t) => t.type === 'expense')
+    .reduce((acc, t) => acc + t.amount, 0)
+
   return (
     <div className="flex flex-col gap-6 p-4 md:p-8 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">Visão geral do APP FINANÇAS PESSOAL ETW.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">Visão geral e fluxo de caixa.</p>
+        </div>
+
+        <div className="flex items-center justify-between w-full sm:w-auto bg-background rounded-md border p-1 shadow-sm">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div className="font-semibold min-w-[140px] text-center capitalize text-sm">
+            {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Saldo Total</CardTitle>
+            <CardTitle className="text-sm font-medium">Saldo Geral (Caixa)</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ 12.345,67</div>
-            <p className="text-xs text-muted-foreground">+20.1% em relação ao mês anterior</p>
+            <div className="text-2xl font-bold">R$ {balance.toFixed(2).replace('.', ',')}</div>
+            <p className="text-xs text-muted-foreground">Base em Dinheiro/PIX</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receitas</CardTitle>
+            <CardTitle className="text-sm font-medium">Receitas (Mês)</CardTitle>
             <ArrowUpIcon className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ 5.432,10</div>
-            <p className="text-xs text-muted-foreground">+15% este mês</p>
+            <div className="text-2xl font-bold text-emerald-600">
+              R$ {receitas.toFixed(2).replace('.', ',')}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Despesas</CardTitle>
+            <CardTitle className="text-sm font-medium">Despesas (Mês)</CardTitle>
             <ArrowDownIcon className="h-4 w-4 text-rose-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ 2.123,45</div>
-            <p className="text-xs text-muted-foreground">-4% este mês</p>
+            <div className="text-2xl font-bold text-rose-600">
+              R$ {despesas.toFixed(2).replace('.', ',')}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Investimentos</CardTitle>
+            <CardTitle className="text-sm font-medium">Balanço do Mês</CardTitle>
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ 4.567,89</div>
-            <p className="text-xs text-muted-foreground">+8.2% de rendimento</p>
+            <div
+              className={cn(
+                'text-2xl font-bold',
+                receitas - despesas >= 0 ? 'text-emerald-600' : 'text-rose-600',
+              )}
+            >
+              R$ {(receitas - despesas).toFixed(2).replace('.', ',')}
+            </div>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="lg:col-span-4">
+        <Card className="lg:col-span-4 hidden md:block">
           <CardHeader>
-            <CardTitle>Desempenho Financeiro</CardTitle>
-            <CardDescription>Fluxo de caixa dos últimos 6 meses.</CardDescription>
+            <CardTitle>Histórico Recente</CardTitle>
+            <CardDescription>Visualização dos últimos 6 meses.</CardDescription>
           </CardHeader>
           <CardContent className="pl-0">
             <ChartContainer
@@ -112,24 +169,47 @@ export default function Dashboard() {
 
         <Card className="lg:col-span-3">
           <CardHeader>
-            <CardTitle>Transações Recentes</CardTitle>
-            <CardDescription>Últimas movimentações registradas.</CardDescription>
+            <CardTitle>Transações de {format(currentMonth, 'MMMM', { locale: ptBR })}</CardTitle>
+            <CardDescription>Lançamentos no mês selecionado.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="flex items-center gap-4">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted">
-                    <DollarSign className="h-4 w-4 text-foreground" />
+            {filteredTx.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                Nenhuma transação neste mês.
+              </p>
+            ) : (
+              <div className="space-y-6">
+                {filteredTx.map((t) => (
+                  <div
+                    key={t.id}
+                    className="flex items-center gap-4 border-b pb-4 last:border-0 last:pb-0"
+                  >
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted">
+                      {t.type === 'income' ? (
+                        <ArrowUpIcon className="h-4 w-4 text-emerald-500" />
+                      ) : (
+                        <ArrowDownIcon className="h-4 w-4 text-rose-500" />
+                      )}
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <p className="text-sm font-medium leading-none">{t.description}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{format(new Date(t.date), 'dd/MM/yyyy')}</span> •{' '}
+                        <span>{t.origin}</span>
+                      </div>
+                    </div>
+                    <div
+                      className={cn(
+                        'font-medium',
+                        t.type === 'income' ? 'text-emerald-600' : 'text-rose-600',
+                      )}
+                    >
+                      {t.type === 'income' ? '+' : '-'} R$ {t.amount.toFixed(2).replace('.', ',')}
+                    </div>
                   </div>
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm font-medium leading-none">Compra no Supermercado</p>
-                    <p className="text-sm text-muted-foreground">Hoje, 14:30</p>
-                  </div>
-                  <div className="font-medium text-rose-500">- R$ 150,00</div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

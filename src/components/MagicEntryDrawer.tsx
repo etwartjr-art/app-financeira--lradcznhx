@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Drawer,
   DrawerContent,
@@ -22,7 +22,6 @@ import {
 import { cn } from '@/lib/utils'
 import { toast } from '@/hooks/use-toast'
 
-const ORIGINS = ['PIX', 'Dinheiro', 'Cartão Roxinho', 'Cartão Itaú']
 const CATEGORIES = [
   { id: 'Alimentação', icon: Utensils },
   { id: 'Transporte', icon: Car },
@@ -32,11 +31,20 @@ const CATEGORIES = [
 ]
 
 export function MagicEntryDrawer() {
-  const { isMagicDrawerOpen, setMagicDrawerOpen, addTransaction } = useFinance()
+  const { isMagicDrawerOpen, setMagicDrawerOpen, addTransaction, cards } = useFinance()
   const [amount, setAmount] = useState('')
   const [type, setType] = useState<'expense' | 'income'>('expense')
-  const [origin, setOrigin] = useState(ORIGINS[0])
+  const [origin, setOrigin] = useState('PIX')
   const [category, setCategory] = useState(CATEGORIES[0].id)
+  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0])
+
+  const ORIGINS = ['PIX', 'Dinheiro', ...cards.map((c) => c.name)]
+
+  useEffect(() => {
+    if (isMagicDrawerOpen) {
+      if (!ORIGINS.includes(origin)) setOrigin(ORIGINS[0])
+    }
+  }, [isMagicDrawerOpen, ORIGINS, origin])
 
   const handleSave = () => {
     const val = parseFloat(amount.replace(',', '.'))
@@ -45,17 +53,21 @@ export function MagicEntryDrawer() {
       return
     }
 
+    const [y, m, d] = date.split('-')
+    const localDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), 12, 0, 0)
+
     addTransaction({
       amount: val,
       description: `Nova ${type === 'expense' ? 'Despesa' : 'Receita'}`,
       type,
       origin,
       category,
+      date: localDate.toISOString(),
     })
 
     toast({
       title: 'Transação salva com sucesso!',
-      style: { backgroundColor: 'hsl(var(--success))', color: 'white' },
+      style: { backgroundColor: 'hsl(var(--success, 142.1 76.2% 36.3%))', color: 'white' },
     })
     setMagicDrawerOpen(false)
     setAmount('')
@@ -63,7 +75,7 @@ export function MagicEntryDrawer() {
 
   return (
     <Drawer open={isMagicDrawerOpen} onOpenChange={setMagicDrawerOpen}>
-      <DrawerContent className="h-[75vh] flex flex-col bg-background px-4">
+      <DrawerContent className="h-[85vh] flex flex-col bg-background px-4">
         <DrawerHeader className="px-0">
           <DrawerTitle className="text-center text-muted-foreground font-medium">
             Nova Transação
@@ -86,15 +98,14 @@ export function MagicEntryDrawer() {
           <ToggleGroup
             type="single"
             value={type}
-            onValueChange={(v) => v && setType(v as any)}
+            onValueChange={(v) => v && setType(v as 'expense' | 'income')}
             className="justify-center"
           >
             <ToggleGroupItem
               value="expense"
               className={cn(
                 'px-6 rounded-full',
-                type === 'expense' &&
-                  'bg-destructive/10 text-destructive data-[state=on]:bg-destructive/10 data-[state=on]:text-destructive',
+                type === 'expense' && 'bg-destructive/10 text-destructive',
               )}
             >
               <ArrowDownCircle className="w-4 h-4 mr-2" /> Despesa
@@ -103,8 +114,7 @@ export function MagicEntryDrawer() {
               value="income"
               className={cn(
                 'px-6 rounded-full',
-                type === 'income' &&
-                  'bg-success/10 text-success data-[state=on]:bg-success/10 data-[state=on]:text-success',
+                type === 'income' && 'bg-[hsl(142.1,76.2%,36.3%)]/10 text-[hsl(142.1,76.2%,36.3%)]',
               )}
             >
               <ArrowUpCircle className="w-4 h-4 mr-2" /> Receita
@@ -112,9 +122,12 @@ export function MagicEntryDrawer() {
           </ToggleGroup>
 
           <div className="space-y-3">
-            <label className="text-sm font-semibold text-muted-foreground">
-              Origem do Pagamento
-            </label>
+            <label className="text-sm font-semibold text-muted-foreground">Data da Transação</label>
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-sm font-semibold text-muted-foreground">Origem / Cartão</label>
             <div className="flex overflow-x-auto gap-2 pb-2 no-scrollbar">
               {ORIGINS.map((o) => (
                 <button

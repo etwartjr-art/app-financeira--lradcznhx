@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useMemo } from 'react'
+import React, { createContext, useContext, useState, useMemo, useEffect } from 'react'
 
 export type Transaction = {
   id: string
@@ -72,83 +72,98 @@ type FinanceContextType = {
 
 const FinanceContext = createContext<FinanceContextType | null>(null)
 
-export const FinanceProvider = ({ children }: { children: React.ReactNode }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('@finance-app:user')
-    if (saved) {
-      try {
-        return JSON.parse(saved)
-      } catch {
-        return null
-      }
-    }
-    return null
-  })
+function loadState<T>(key: string, fallback: T): T {
+  try {
+    const saved = localStorage.getItem(key)
+    return saved ? JSON.parse(saved) : fallback
+  } catch {
+    return fallback
+  }
+}
 
+const defaultUsers: User[] = [
+  {
+    id: '1',
+    name: 'Etwart Jr',
+    email: 'Etwartjr@gmail.com',
+    password: 'Samuel@1234@',
+    role: 'Admin',
+    situation: 'Ativo',
+    createdAt: '2023-01-15T10:00:00Z',
+  },
+  {
+    id: '2',
+    name: 'Maria Souza',
+    email: 'maria@financasetw.com.br',
+    password: 'password123',
+    role: 'User',
+    situation: 'Devedor',
+    createdAt: '2023-11-20T10:00:00Z',
+  },
+  {
+    id: '3',
+    name: 'Carlos Santos',
+    email: 'carlos@financasetw.com.br',
+    password: 'password123',
+    role: 'User',
+    situation: 'Ativo',
+    createdAt: '2024-01-05T10:00:00Z',
+  },
+]
+
+const defaultCatsFor = (userId: string) => [
+  { id: Math.random().toString(), userId, name: 'Alimentação', color: '#ef4444' },
+  { id: Math.random().toString(), userId, name: 'Transporte', color: '#3b82f6' },
+  { id: Math.random().toString(), userId, name: 'Moradia', color: '#10b981' },
+  { id: Math.random().toString(), userId, name: 'Lazer', color: '#f59e0b' },
+  { id: Math.random().toString(), userId, name: 'Saúde', color: '#ec4899' },
+  { id: Math.random().toString(), userId, name: 'Salário', color: '#22c55e' },
+  { id: Math.random().toString(), userId, name: 'Outros', color: '#64748b' },
+]
+
+const initialCategories: Category[] = [
+  ...defaultCatsFor('1'),
+  ...defaultCatsFor('2'),
+  ...defaultCatsFor('3'),
+]
+
+export const FinanceProvider = ({ children }: { children: React.ReactNode }) => {
+  const [currentUser, setCurrentUser] = useState<User | null>(() =>
+    loadState('@finance-app:user', null),
+  )
   const isLoggedIn = !!currentUser
   const [currentMonth, setCurrentMonth] = useState(new Date())
 
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: '1',
-      name: 'Etwart Jr',
-      email: 'Etwartjr@gmail.com',
-      password: 'Samuel@1234@',
-      role: 'Admin',
-      situation: 'Ativo',
-      createdAt: '2023-01-15T10:00:00Z',
-    },
-    {
-      id: '2',
-      name: 'Maria Souza',
-      email: 'maria@financasetw.com.br',
-      password: 'password123',
-      role: 'User',
-      situation: 'Devedor',
-      createdAt: '2023-11-20T10:00:00Z',
-    },
-    {
-      id: '3',
-      name: 'Carlos Santos',
-      email: 'carlos@financasetw.com.br',
-      password: 'password123',
-      role: 'User',
-      situation: 'Ativo',
-      createdAt: '2024-01-05T10:00:00Z',
-    },
-  ])
+  const [users, setUsers] = useState<User[]>(() => loadState('@finance-app:users', defaultUsers))
+  const [categories, setCategories] = useState<Category[]>(() =>
+    loadState('@finance-app:categories', initialCategories),
+  )
+  const [cards, setCards] = useState<Card[]>(() => loadState('@finance-app:cards', []))
+  const [transactions, setTransactions] = useState<Transaction[]>(() =>
+    loadState('@finance-app:transactions', []),
+  )
 
-  const defaultCatsFor = (userId: string) => [
-    { id: Math.random().toString(), userId, name: 'Alimentação', color: '#ef4444' },
-    { id: Math.random().toString(), userId, name: 'Transporte', color: '#3b82f6' },
-    { id: Math.random().toString(), userId, name: 'Moradia', color: '#10b981' },
-    { id: Math.random().toString(), userId, name: 'Lazer', color: '#f59e0b' },
-    { id: Math.random().toString(), userId, name: 'Saúde', color: '#ec4899' },
-    { id: Math.random().toString(), userId, name: 'Salário', color: '#22c55e' },
-    { id: Math.random().toString(), userId, name: 'Outros', color: '#64748b' },
-  ]
+  useEffect(() => {
+    localStorage.setItem('@finance-app:users', JSON.stringify(users))
+  }, [users])
+  useEffect(() => {
+    localStorage.setItem('@finance-app:categories', JSON.stringify(categories))
+  }, [categories])
+  useEffect(() => {
+    localStorage.setItem('@finance-app:cards', JSON.stringify(cards))
+  }, [cards])
+  useEffect(() => {
+    localStorage.setItem('@finance-app:transactions', JSON.stringify(transactions))
+  }, [transactions])
 
-  const [categories, setCategories] = useState<Category[]>([
-    ...defaultCatsFor('1'),
-    ...defaultCatsFor('2'),
-    ...defaultCatsFor('3'),
-  ])
-
-  // Removed all hardcoded test data to ensure clean slate per User Story
-  const [cards, setCards] = useState<Card[]>([])
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-
-  // Strict multi-tenancy isolation
   const userTransactions = useMemo(
     () => transactions.filter((t) => t.userId === currentUser?.id),
     [transactions, currentUser],
   )
-
   const userCards = useMemo(
     () => cards.filter((c) => c.userId === currentUser?.id),
     [cards, currentUser],
   )
-
   const userCategories = useMemo(
     () => categories.filter((c) => c.userId === currentUser?.id),
     [categories, currentUser],
@@ -187,44 +202,38 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
 
   const deleteUser = (id: string) => {
     setUsers((p) => p.filter((u) => u.id !== id))
-
-    // Clean up associated data for data integrity
     setTransactions((p) => p.filter((t) => t.userId !== id))
     setCards((p) => p.filter((c) => c.userId !== id))
     setCategories((p) => p.filter((c) => c.userId !== id))
-
-    // Handle session data if the user being deleted is currently logged in
-    if (currentUser?.id === id) {
-      logout()
-    }
+    if (currentUser?.id === id) logout()
   }
 
   const addCategory = (cat: Omit<Category, 'id' | 'userId'>) => {
-    if (!currentUser) return
-    setCategories((p) => [...p, { ...cat, id: Math.random().toString(), userId: currentUser.id }])
+    if (currentUser)
+      setCategories((p) => [...p, { ...cat, id: Math.random().toString(), userId: currentUser.id }])
   }
   const updateCategory = (id: string, data: Partial<Category>) =>
     setCategories((p) => p.map((c) => (c.id === id ? { ...c, ...data } : c)))
   const deleteCategory = (id: string) => setCategories((p) => p.filter((c) => c.id !== id))
 
   const addCard = (card: Omit<Card, 'id' | 'userId'>) => {
-    if (!currentUser) return
-    setCards((p) => [...p, { ...card, id: Math.random().toString(), userId: currentUser.id }])
+    if (currentUser)
+      setCards((p) => [...p, { ...card, id: Math.random().toString(), userId: currentUser.id }])
   }
   const updateCard = (id: string, data: Partial<Card>) =>
     setCards((p) => p.map((c) => (c.id === id ? { ...c, ...data } : c)))
   const deleteCard = (id: string) => setCards((p) => p.filter((c) => c.id !== id))
 
   const addTransaction = (tx: Omit<Transaction, 'id' | 'userId'>) => {
-    if (!currentUser) return
-    setTransactions((p) => [{ ...tx, id: Math.random().toString(), userId: currentUser.id }, ...p])
+    if (currentUser)
+      setTransactions((p) => [
+        { ...tx, id: Math.random().toString(), userId: currentUser.id },
+        ...p,
+      ])
   }
-  const updateTransaction = (id: string, data: Partial<Transaction>) => {
+  const updateTransaction = (id: string, data: Partial<Transaction>) =>
     setTransactions((p) => p.map((t) => (t.id === id ? ({ ...t, ...data } as Transaction) : t)))
-  }
-  const deleteTransaction = (id: string) => {
-    setTransactions((p) => p.filter((t) => t.id !== id))
-  }
+  const deleteTransaction = (id: string) => setTransactions((p) => p.filter((t) => t.id !== id))
 
   const value = useMemo(
     () => ({

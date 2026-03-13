@@ -72,19 +72,33 @@ export default function Users() {
     setModal({ open: false, mode: 'add', user: { role: 'User', situation: 'Ativo' } })
   }
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deleteConfirm.userId) return
 
+    const userId = deleteConfirm.userId
+    setDeleteConfirm({ open: false, userId: null })
+
+    const t = toast({
+      title: 'Processando...',
+      description: 'Limpando dados vinculados e removendo usuário.',
+    })
+
     try {
-      deleteUser(deleteConfirm.userId)
-      toast({ title: 'User removed successfully' })
+      await new Promise((resolve) => setTimeout(resolve, 600))
+      deleteUser(userId)
+      t.update({
+        id: t.id,
+        title: 'Usuário removido com sucesso',
+        description: undefined,
+        variant: 'default',
+      })
     } catch (error) {
-      toast({
-        title: 'Error: Could not remove user. Please try again.',
+      t.update({
+        id: t.id,
+        title: 'Erro ao remover',
+        description: 'Não foi possível completar a operação. Tente novamente.',
         variant: 'destructive',
       })
-    } finally {
-      setDeleteConfirm({ open: false, userId: null })
     }
   }
 
@@ -218,21 +232,25 @@ export default function Users() {
         <AlertDialogContent className="bg-[#161925] border-slate-800 text-slate-100 sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-white">
-              Are you sure you want to remove this user?
+              Tem certeza que deseja remover este usuário?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-slate-400">
-              This action cannot be undone.
+              Esta ação não pode ser desfeita. Todos os dados financeiros, cartões e categorias
+              vinculadas serão permanentemente apagados.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-transparent border-slate-700 text-white hover:bg-slate-800 hover:text-white">
-              Cancel
+              Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleConfirmDelete}
+              onClick={(e) => {
+                e.preventDefault()
+                handleConfirmDelete()
+              }}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              Confirm/Delete
+              Confirmar e Remover
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

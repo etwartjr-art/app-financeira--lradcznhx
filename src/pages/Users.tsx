@@ -110,7 +110,7 @@ export default function Users() {
             setModal({ open: true, mode: 'add', user: { role: 'User', situation: 'Ativo' } })
           }
         >
-          <UserPlus className="mr-2 h-4 w-4" /> Adicionar Usuário
+          <UserPlus className="mr-2 h-4 w-4" /> <span>Adicionar Usuário</span>
         </Button>
       </div>
 

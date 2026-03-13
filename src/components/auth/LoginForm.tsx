@@ -50,7 +50,6 @@ export default function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: 
   const handleGoogleLoginInit = () => {
     setIsLoading(true)
     setTimeout(() => {
-      setIsLoading(false)
       const mockedOAuthEmail = email.trim() || 'Etwartjr@gmail.com'
       const foundUser = (users || []).find(
         (u) => u.email.toLowerCase() === mockedOAuthEmail.toLowerCase(),
@@ -62,7 +61,9 @@ export default function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: 
           description: 'Acesso via Google concluído.',
         })
         login(foundUser)
+        // Avoid setting isLoading to false here to prevent unmount race condition
       } else {
+        setIsLoading(false)
         toast({
           title: 'Conta não encontrada',
           description: 'Nenhum usuário registrado com este e-mail do Google.',
@@ -86,7 +87,7 @@ export default function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: 
         ) : (
           <GoogleIcon className="mr-2 h-5 w-5" />
         )}
-        {isLoading ? 'Autenticando...' : 'Entrar com Google'}
+        <span>{isLoading ? 'Autenticando...' : 'Entrar com Google'}</span>
       </Button>
 
       <div className="relative">
@@ -128,12 +129,12 @@ export default function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: 
           type="submit"
           className="w-full h-12 bg-slate-800 hover:bg-slate-700 text-white font-medium text-base rounded-xl mt-2"
         >
-          Entrar
+          <span>Entrar</span>
         </Button>
       </form>
       <div className="text-center pt-2">
         <p className="text-sm text-slate-400">
-          Ainda não tem conta?{' '}
+          <span>Ainda não tem conta?</span>{' '}
           <button
             type="button"
             onClick={onSwitchToRegister}

@@ -63,7 +63,7 @@ export default function Categories() {
           className="bg-[#0f766e] hover:bg-[#0f766e]/90 text-white rounded-lg"
           onClick={() => setModal({ open: true, mode: 'add', cat: { color: '#0f766e' } })}
         >
-          <Plus className="mr-2 h-4 w-4" /> Adicionar Categoria
+          <Plus className="mr-2 h-4 w-4" /> <span>Adicionar Categoria</span>
         </Button>
       </div>
 
@@ -130,7 +130,7 @@ export default function Categories() {
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2">
               <Tags className="w-5 h-5 text-[#0f766e]" />
-              {modal.mode === 'add' ? 'Nova Categoria' : 'Editar Categoria'}
+              <span>{modal.mode === 'add' ? 'Nova Categoria' : 'Editar Categoria'}</span>
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-5 py-4">

@@ -105,7 +105,7 @@ export default function Dashboard() {
           >
             <Link to="/annual-report">
               <BarChart3 className="w-4 h-4 mr-2" />
-              Relatório Anual
+              <span>Relatório Anual</span>
             </Link>
           </Button>
         </div>
@@ -196,7 +196,7 @@ export default function Dashboard() {
               </div>
               <div className="bg-[#0b0e14] p-4 rounded-xl flex-1 border border-slate-800">
                 <p className="text-xs text-slate-400 mb-1 font-medium flex items-center gap-1">
-                  <CreditCard className="w-3 h-3" /> Cartões
+                  <CreditCard className="w-3 h-3" /> <span>Cartões</span>
                 </p>
                 <p className="text-xl font-bold text-amber-500">
                   R${' '}
@@ -227,7 +227,7 @@ export default function Dashboard() {
         <Card className="bg-[#161925] border-slate-800 shadow-sm">
           <CardHeader>
             <CardTitle className="text-base text-white font-semibold flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-emerald-500" /> Despesas por Cartão
+              <CreditCard className="w-5 h-5 text-emerald-500" /> <span>Despesas por Cartão</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col min-h-[200px] gap-4">
@@ -328,10 +328,13 @@ export default function Dashboard() {
                     <div
                       className={`font-semibold ${t.type === 'income' ? 'text-emerald-500' : 'text-slate-300'}`}
                     >
-                      {t.type === 'income' ? '+' : '-'} R${' '}
-                      {(Number(t.amount) || 0).toLocaleString('pt-BR', {
-                        minimumFractionDigits: 2,
-                      })}
+                      <span>{t.type === 'income' ? '+ ' : '- '}</span>
+                      <span>
+                        R${' '}
+                        {(Number(t.amount) || 0).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 2,
+                        })}
+                      </span>
                     </div>
                   </div>
                 )

@@ -109,7 +109,7 @@ export default function Cards() {
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
             <DialogTrigger asChild>
               <Button className="bg-[#0f766e] hover:bg-[#0f766e]/90 text-white rounded-lg">
-                <Plus className="mr-2 h-4 w-4" /> Novo Cartão
+                <Plus className="mr-2 h-4 w-4" /> <span>Novo Cartão</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="bg-[#161925] border-slate-800 text-slate-100 sm:max-w-md">
@@ -199,7 +199,7 @@ export default function Cards() {
               onClick={() => setIsAddOpen(true)}
               className="bg-[#0f766e] hover:bg-[#0f766e]/90 text-white"
             >
-              <Plus className="w-4 h-4 mr-2" /> Novo Cartão
+              <Plus className="w-4 h-4 mr-2" /> <span>Novo Cartão</span>
             </Button>
           </div>
         ) : (
@@ -275,10 +275,11 @@ export default function Cards() {
 
                   <div className="flex justify-between text-xs text-slate-500 mt-2 font-medium">
                     <span className="flex items-center">
-                      <CalendarDays className="w-3 h-3 mr-1" /> Fecha: {card.closingDate}
+                      <CalendarDays className="w-3 h-3 mr-1" />{' '}
+                      <span>Fecha: {card.closingDate}</span>
                     </span>
                     <span className="flex items-center">
-                      <CalendarDays className="w-3 h-3 mr-1" /> Vence: {card.dueDate}
+                      <CalendarDays className="w-3 h-3 mr-1" /> <span>Vence: {card.dueDate}</span>
                     </span>
                   </div>
 

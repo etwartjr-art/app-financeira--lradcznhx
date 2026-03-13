@@ -131,7 +131,7 @@ export default function Transactions() {
             className="bg-[#0f766e] hover:bg-[#0f766e]/90 text-white rounded-lg px-6"
             onClick={() => setIsAddOpen(true)}
           >
-            + Nova
+            <span>+ Nova</span>
           </Button>
         </div>
       </div>
@@ -213,8 +213,11 @@ export default function Transactions() {
                     t.type === 'income' ? 'text-emerald-500' : 'text-slate-200',
                   )}
                 >
-                  {t.type === 'income' ? '' : '-'} R${' '}
-                  {(Number(t.amount) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <span>{t.type === 'income' ? '' : '- '}</span>
+                  <span>
+                    R${' '}
+                    {(Number(t.amount) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

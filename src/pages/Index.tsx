@@ -21,9 +21,9 @@ export default function Index() {
 
         <div className="rounded-2xl border border-slate-800 bg-[#161925] p-6 shadow-xl relative overflow-hidden">
           {view === 'login' ? (
-            <LoginForm onSwitchToRegister={() => setView('register')} />
+            <LoginForm key="login" onSwitchToRegister={() => setView('register')} />
           ) : (
-            <RegisterForm onSwitchToLogin={() => setView('login')} />
+            <RegisterForm key="register" onSwitchToLogin={() => setView('login')} />
           )}
         </div>
       </div>

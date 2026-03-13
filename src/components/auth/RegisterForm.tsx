@@ -57,10 +57,10 @@ export default function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () 
   const handleGoogleRegister = () => {
     setIsLoading(true)
     setTimeout(() => {
-      setIsLoading(false)
       const mockEmail = form.email.trim() || 'novo_usuario@gmail.com'
 
       if ((users || []).some((u) => u.email.toLowerCase() === mockEmail.toLowerCase())) {
+        setIsLoading(false)
         toast({
           title: 'Conta já existente',
           description: 'Este e-mail já está cadastrado. Por favor, faça login.',
@@ -77,6 +77,7 @@ export default function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () 
         })
         toast({ title: 'Sucesso!', description: 'Sua conta foi criada via Google.' })
         login(createdUser)
+        // Avoid setting isLoading to false here to prevent unmount race condition
       }
     }, 1500)
   }
@@ -95,7 +96,7 @@ export default function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () 
         ) : (
           <GoogleIcon className="mr-2 h-5 w-5" />
         )}
-        {isLoading ? 'Conectando...' : 'Cadastrar com Google'}
+        <span>{isLoading ? 'Conectando...' : 'Cadastrar com Google'}</span>
       </Button>
 
       <div className="relative">
@@ -163,13 +164,13 @@ export default function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () 
           type="submit"
           className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-base rounded-xl mt-4"
         >
-          Criar Conta
+          <span>Criar Conta</span>
         </Button>
       </form>
 
       <div className="text-center pt-2">
         <p className="text-sm text-slate-400">
-          Já possui conta?{' '}
+          <span>Já possui conta?</span>{' '}
           <button
             type="button"
             onClick={onSwitchToLogin}

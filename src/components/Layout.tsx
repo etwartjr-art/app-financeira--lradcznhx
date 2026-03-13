@@ -54,7 +54,7 @@ export default function Layout() {
             )}
           >
             <item.icon className="h-4 w-4" />
-            {item.label}
+            <span>{item.label}</span>
           </Link>
         )
       })}
@@ -101,7 +101,7 @@ export default function Layout() {
             className="w-full justify-start gap-3 text-slate-400 hover:text-slate-50"
             onClick={handleLogout}
           >
-            <LogOut className="h-4 w-4" /> Sair
+            <LogOut className="h-4 w-4" /> <span>Sair</span>
           </Button>
         </div>
       </aside>
@@ -154,7 +154,7 @@ export default function Layout() {
                 className="w-full justify-start gap-3 text-slate-400 hover:text-slate-50"
                 onClick={handleLogout}
               >
-                <LogOut className="h-4 w-4" /> Sair
+                <LogOut className="h-4 w-4" /> <span>Sair</span>
               </Button>
             </div>
           </SheetContent>

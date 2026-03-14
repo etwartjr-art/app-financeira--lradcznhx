@@ -68,12 +68,30 @@ class ErrorBoundary extends React.Component<
 
 const ProtectedLayout = () => {
   const { isLoggedIn, currentUser } = useFinance()
+  const [isMounted, setIsMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  // Safely wait for mount to prevent DOM mismatch and insertBefore errors during transition
+  if (!isMounted) return null
+
   if (!isLoggedIn || !currentUser) return <Navigate to="/" replace />
   return <Layout />
 }
 
 const AdminLayout = () => {
   const { currentUser } = useFinance()
+  const [isMounted, setIsMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  // Ensure fully resolved session data before transition to avoid "ghost" renders
+  if (!isMounted) return null
+
   if (currentUser?.role !== 'Admin') return <Navigate to="/dashboard" replace />
   return <Outlet />
 }

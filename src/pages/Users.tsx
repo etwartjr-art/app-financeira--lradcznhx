@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -28,6 +28,7 @@ import { UserDialog } from '@/components/UserDialog'
 
 export default function Users() {
   const { users, addUser, updateUser, deleteUser } = useFinance()
+  const [isMounted, setIsMounted] = useState(false)
 
   const [modal, setModal] = useState<{ open: boolean; mode: 'add' | 'edit'; user: Partial<User> }>({
     open: false,
@@ -39,6 +40,10 @@ export default function Users() {
     open: false,
     userId: null,
   })
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const getUsageTime = (dateStr?: string) => {
     if (!dateStr) return 'Desconhecido'
@@ -97,6 +102,9 @@ export default function Users() {
     }
   }
 
+  // Prevent rendering until mounted to ensure safe DOM node insertions and avoid router crashes
+  if (!isMounted) return null
+
   return (
     <div className="flex flex-col gap-6 p-4 md:p-8 animate-fade-in max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -146,10 +154,10 @@ export default function Users() {
               <TableRow key={user.id} className="border-slate-800/50 hover:bg-slate-800/30 group">
                 <TableCell className="font-medium text-slate-200">
                   <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-semibold text-slate-300">
+                    <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-semibold text-slate-300 shrink-0">
                       {user.name.charAt(0).toUpperCase()}
                     </div>
-                    {user.name}
+                    <span className="truncate">{user.name}</span>
                   </div>
                 </TableCell>
                 <TableCell className="text-slate-400 text-sm">{user.email}</TableCell>
@@ -164,7 +172,7 @@ export default function Users() {
                     variant="outline"
                     className={`text-[10px] px-2 py-0.5 border-transparent ${user.role === 'Admin' ? 'bg-purple-500/10 text-purple-400' : 'bg-blue-500/10 text-blue-400'}`}
                   >
-                    {user.role}
+                    <span>{user.role}</span>
                   </Badge>
                 </TableCell>
                 <TableCell>
@@ -182,7 +190,7 @@ export default function Users() {
                     ) : (
                       <AlertCircle className="w-3 h-3" />
                     )}
-                    {user.situation}
+                    <span>{user.situation}</span>
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">

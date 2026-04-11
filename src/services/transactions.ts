@@ -1,7 +1,13 @@
 import pb from '@/lib/pocketbase/client'
 import type { Transaction } from '@/stores/FinanceContext'
 
-const mapRecord = (r: any): Transaction & { fitId?: string; refNum?: string } => ({
+export type TransactionExt = Transaction & {
+  fitId?: string
+  refNum?: string
+  cardId?: string
+}
+
+const mapRecord = (r: any): TransactionExt => ({
   id: r.id,
   userId: r.user_id,
   description: r.description,
@@ -13,6 +19,7 @@ const mapRecord = (r: any): Transaction & { fitId?: string; refNum?: string } =>
   tags: r.tags,
   fitId: r.fitId,
   refNum: r.refNum,
+  cardId: r.cardId,
 })
 
 export const getAll = async () => {
@@ -25,9 +32,7 @@ export const getById = async (id: string) => {
   return mapRecord(record)
 }
 
-export const create = async (
-  data: Omit<Transaction, 'id' | 'userId'> & { fitId?: string; refNum?: string },
-) => {
+export const create = async (data: Omit<TransactionExt, 'id' | 'userId'>) => {
   const record = await pb.collection('transactions').create({
     ...data,
     user_id: pb.authStore.record?.id,

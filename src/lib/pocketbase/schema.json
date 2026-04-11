@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-11T15:24:54.331Z",
+  "generatedAt": "2026-04-11T15:37:14.582Z",
   "collections": [
     {
       "name": "users",
@@ -185,6 +185,36 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "availableLimit",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "usedLimit",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nextClosingDate",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "bankName",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "flag",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": []
@@ -275,6 +305,13 @@
           "type": "text",
           "required": false,
           "system": false
+        },
+        {
+          "name": "cardId",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "cards"
         }
       ],
       "indexes": ["CREATE INDEX `idx_transactions_fitId` ON `transactions` (fitId)"]

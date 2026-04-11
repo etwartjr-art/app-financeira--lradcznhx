@@ -1,5 +1,13 @@
 import pb from '@/lib/pocketbase/client'
-import type { Card } from '@/stores/FinanceContext'
+import type { Card as BaseCard } from '@/stores/FinanceContext'
+
+export type Card = BaseCard & {
+  availableLimit?: number
+  usedLimit?: number
+  nextClosingDate?: string
+  bankName?: string
+  flag?: string
+}
 
 const mapRecord = (r: any): Card => ({
   id: r.id,
@@ -13,6 +21,11 @@ const mapRecord = (r: any): Card => ({
   closingDate: r.closingDate,
   dueDate: r.dueDate,
   status: r.status,
+  availableLimit: r.availableLimit,
+  usedLimit: r.usedLimit,
+  nextClosingDate: r.nextClosingDate,
+  bankName: r.bankName,
+  flag: r.flag,
 })
 
 export const getAll = async () => {

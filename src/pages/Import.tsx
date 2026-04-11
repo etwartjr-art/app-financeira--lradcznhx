@@ -1,16 +1,19 @@
 import { useRef, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Upload, FileText, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Upload, FileText, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
-import { useFinance } from '@/stores/FinanceContext'
+import { ToastAction } from '@/components/ui/toast'
+import { parseOFXFile } from '@/services/ofx-parser'
+import { deduplicateTransactions } from '@/services/deduplication'
+import { create, getAll } from '@/services/transactions'
 
 export default function Import() {
-  const { addTransaction } = useFinance()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleFileUpload = (file: File) => {
+  const processFile = async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.ofx')) {
       toast({
         title: 'Formato inválido',
@@ -20,30 +23,79 @@ export default function Import() {
       return
     }
 
-    toast({
-      title: `Arquivo ${file.name} processado!`,
-      description: 'Transações preparadas para conciliação.',
-    })
-
-    // Mock processing delay and add a transaction
-    setTimeout(() => {
-      addTransaction({
-        amount: 120.5,
-        description: 'Compra Via OFX Importado',
-        type: 'expense',
-        date: new Date().toISOString(),
-        origin: 'Extrato Bancário',
-        category: 'Outros',
-        isPending: true,
+    if (file.size === 0) {
+      toast({
+        title: 'Arquivo vazio',
+        variant: 'destructive',
       })
-      toast({ title: '1 transação encontrada e importada.' })
-    }, 1500)
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      const text = await file.text()
+      if (!text.trim()) {
+        toast({ title: 'Arquivo vazio', variant: 'destructive' })
+        setIsLoading(false)
+        return
+      }
+
+      const parsedTransactions = parseOFXFile(text)
+      const existingTransactions = await getAll()
+
+      const { newTransactions, duplicateCount } = deduplicateTransactions(
+        parsedTransactions,
+        existingTransactions,
+      )
+
+      for (const t of newTransactions) {
+        await create({
+          description: t.description,
+          amount: t.amount,
+          type: t.type,
+          date: t.date,
+          origin: t.origin,
+          category: 'Outros',
+          fitId: t.fitId,
+          refNum: t.refNum,
+          tags: 'importado',
+        })
+      }
+
+      if (newTransactions.length > 0) {
+        toast({
+          title: `${newTransactions.length} transacoes importadas com sucesso`,
+          className: 'bg-emerald-600 text-white border-none',
+        })
+      }
+
+      if (duplicateCount > 0) {
+        toast({
+          title: `${duplicateCount} transacoes duplicadas ignoradas`,
+        })
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao ler arquivo OFX',
+        description:
+          error.message === 'Arquivo OFX invalido' ? error.message : 'Ocorreu um erro inesperado.',
+        variant: 'destructive',
+        action: (
+          <ToastAction altText="Tentar novamente" onClick={() => fileInputRef.current?.click()}>
+            Tentar novamente
+          </ToastAction>
+        ),
+      })
+    } finally {
+      setIsLoading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
   }
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) handleFileUpload(file)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    if (file) processFile(file)
   }
 
   const onDragOver = (e: React.DragEvent) => {
@@ -57,7 +109,7 @@ export default function Import() {
     e.preventDefault()
     setIsDragging(false)
     const file = e.dataTransfer.files?.[0]
-    if (file) handleFileUpload(file)
+    if (file) processFile(file)
   }
 
   return (
@@ -68,16 +120,27 @@ export default function Import() {
       </div>
 
       <div
-        className={`w-full h-80 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-6 transition-all bg-[#161925] ${isDragging ? 'border-[#0f766e] bg-[#0f766e]/5' : 'border-slate-700 hover:border-slate-500'}`}
+        className={`w-full h-80 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-6 transition-all bg-[#161925] ${isDragging ? 'border-[#0f766e] bg-[#0f766e]/5' : 'border-slate-700 hover:border-slate-500'} ${isLoading ? 'opacity-70 pointer-events-none' : ''}`}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
       >
         <div className="w-16 h-16 rounded-2xl bg-[#0f766e]/10 flex items-center justify-center mb-6 shadow-sm">
-          <Upload className="w-8 h-8 text-[#0f766e]" />
+          {isLoading ? (
+            <Loader2 className="w-8 h-8 text-[#0f766e] animate-spin" />
+          ) : (
+            <Upload className="w-8 h-8 text-[#0f766e]" />
+          )}
         </div>
-        <h3 className="text-xl font-semibold text-white mb-2">Arraste seu arquivo OFX aqui</h3>
-        <p className="text-slate-400 text-sm mb-8">ou clique para selecionar</p>
+
+        <h3 className="text-xl font-semibold text-white mb-2">
+          {isLoading
+            ? 'Importando transacoes...'
+            : 'Arraste arquivo OFX aqui ou clique para selecionar'}
+        </h3>
+        {!isLoading && (
+          <p className="text-slate-400 text-sm mb-8">Apenas arquivos .ofx são suportados</p>
+        )}
 
         <input
           type="file"
@@ -85,13 +148,17 @@ export default function Import() {
           className="hidden"
           ref={fileInputRef}
           onChange={onFileChange}
+          disabled={isLoading}
         />
-        <Button
-          className="bg-[#0f766e] hover:bg-[#0f766e]/90 text-white rounded-lg px-8 h-12 font-medium"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          Selecionar Arquivo
-        </Button>
+
+        {!isLoading && (
+          <Button
+            className="bg-[#0f766e] hover:bg-[#0f766e]/90 text-white rounded-lg px-8 h-12 font-medium"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            Selecionar Arquivo
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -131,7 +198,7 @@ export default function Import() {
             <div>
               <h4 className="font-semibold text-white mb-2">Conciliação</h4>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Revise transações duvidosas e aprove manualmente
+                Deduplicação e importação inteligente
               </p>
             </div>
           </CardContent>

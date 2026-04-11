@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-11T15:08:07.978Z",
+  "generatedAt": "2026-04-11T15:21:50.484Z",
   "collections": [
     {
       "name": "users",
@@ -263,9 +263,21 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "fitId",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "refNum",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
-      "indexes": []
+      "indexes": ["CREATE INDEX `idx_transactions_fitId` ON `transactions` (fitId)"]
     }
   ]
 }

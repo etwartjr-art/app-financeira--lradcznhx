@@ -49,44 +49,92 @@ export default function Import() {
         existingTransactions,
       )
 
+      const shouldThrottle = newTransactions.length > 50
+      let importedCount = 0
+      let rateLimited = false
+
       for (const t of newTransactions) {
-        await create({
-          description: t.description,
-          amount: t.amount,
-          type: t.type,
-          date: t.date,
-          origin: t.origin,
-          category: 'Outros',
-          fitId: t.fitId,
-          refNum: t.refNum,
-          tags: 'importado',
-        })
+        try {
+          await create({
+            description: t.description,
+            amount: t.amount,
+            type: t.type,
+            date: t.date,
+            origin: t.origin,
+            category: 'Outros',
+            fitId: t.fitId,
+            refNum: t.refNum,
+            tags: 'importado',
+          })
+          importedCount++
+
+          if (shouldThrottle) {
+            await new Promise((resolve) => setTimeout(resolve, 100))
+          }
+        } catch (err: any) {
+          if (err?.status === 429 || err?.response?.code === 429) {
+            rateLimited = true
+            break
+          }
+          throw err
+        }
       }
 
-      if (newTransactions.length > 0) {
+      if (importedCount > 0) {
         toast({
-          title: `${newTransactions.length} transacoes importadas com sucesso`,
+          title: `${importedCount} transações importadas com sucesso`,
           className: 'bg-emerald-600 text-white border-none',
         })
       }
 
       if (duplicateCount > 0) {
         toast({
-          title: `${duplicateCount} transacoes duplicadas ignoradas`,
+          title: `${duplicateCount} transações duplicadas ignoradas`,
+        })
+      }
+
+      if (rateLimited) {
+        toast({
+          title: 'Muitas requisições',
+          description:
+            'Muitas requisições em curto tempo. Por favor, aguarde um momento e tente novamente.',
+          variant: 'destructive',
+          action: (
+            <ToastAction altText="Tentar novamente" onClick={() => fileInputRef.current?.click()}>
+              Tentar novamente
+            </ToastAction>
+          ),
         })
       }
     } catch (error: any) {
-      toast({
-        title: 'Erro ao ler arquivo OFX',
-        description:
-          error.message === 'Arquivo OFX invalido' ? error.message : 'Ocorreu um erro inesperado.',
-        variant: 'destructive',
-        action: (
-          <ToastAction altText="Tentar novamente" onClick={() => fileInputRef.current?.click()}>
-            Tentar novamente
-          </ToastAction>
-        ),
-      })
+      const isRateLimit = error?.status === 429 || error?.response?.code === 429
+      if (isRateLimit) {
+        toast({
+          title: 'Muitas requisições',
+          description:
+            'Muitas requisições em curto tempo. Por favor, aguarde um momento e tente novamente.',
+          variant: 'destructive',
+          action: (
+            <ToastAction altText="Tentar novamente" onClick={() => fileInputRef.current?.click()}>
+              Tentar novamente
+            </ToastAction>
+          ),
+        })
+      } else {
+        toast({
+          title: 'Erro ao ler arquivo OFX',
+          description:
+            error.message === 'Arquivo OFX invalido'
+              ? error.message
+              : 'Ocorreu um erro inesperado.',
+          variant: 'destructive',
+          action: (
+            <ToastAction altText="Tentar novamente" onClick={() => fileInputRef.current?.click()}>
+              Tentar novamente
+            </ToastAction>
+          ),
+        })
+      }
     } finally {
       setIsLoading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''

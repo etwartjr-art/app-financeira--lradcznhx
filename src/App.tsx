@@ -3,7 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { FinanceProvider, useFinance } from '@/stores/FinanceContext'
+import { FinanceProvider } from '@/stores/FinanceContext'
+import { AuthProvider, useAuth } from '@/hooks/use-auth'
 import Layout from '@/components/Layout'
 import Index from '@/pages/Index'
 import Dashboard from '@/pages/Dashboard'
@@ -67,37 +68,29 @@ class ErrorBoundary extends React.Component<
 }
 
 const ProtectedLayout = () => {
-  const { isLoggedIn, currentUser } = useFinance()
-  const [isMounted, setIsMounted] = React.useState(false)
+  const { isLoggedIn, currentUser, loading } = useAuth()
 
-  React.useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  // Safely wait for mount to prevent DOM mismatch and insertBefore errors during transition
-  if (!isMounted) return null
+  if (loading) return <div className="min-h-screen bg-[#0b0e14]" />
 
   if (!isLoggedIn || !currentUser) return <Navigate to="/" replace />
   return <Layout />
 }
 
 const AdminLayout = () => {
-  const { currentUser } = useFinance()
-  const [isMounted, setIsMounted] = React.useState(false)
+  const { currentUser, loading } = useAuth()
 
-  React.useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  // Ensure fully resolved session data before transition to avoid "ghost" renders
-  if (!isMounted) return null
+  if (loading) return <div className="min-h-screen bg-[#0b0e14]" />
 
   if (currentUser?.role !== 'Admin') return <Navigate to="/dashboard" replace />
   return <Outlet />
 }
 
 function AppContent() {
-  const { isLoggedIn } = useFinance()
+  const { isLoggedIn, loading } = useAuth()
+
+  if (loading) {
+    return <div className="min-h-screen bg-[#0b0e14]" />
+  }
 
   return (
     <TooltipProvider>
@@ -136,9 +129,11 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <FinanceProvider>
-        <AppContent />
-      </FinanceProvider>
+      <AuthProvider>
+        <FinanceProvider>
+          <AppContent />
+        </FinanceProvider>
+      </AuthProvider>
     </ErrorBoundary>
   )
 }

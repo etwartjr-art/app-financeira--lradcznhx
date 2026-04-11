@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useFinance } from '@/stores/FinanceContext'
+import { useAuth } from '@/hooks/use-auth'
 import { toast } from '@/hooks/use-toast'
 import { Loader2 } from 'lucide-react'
 import { GoogleIcon } from '@/components/icons/GoogleIcon'
+import { getErrorMessage } from '@/lib/pocketbase/errors'
 
 export default function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => void }) {
-  const { login, users } = useFinance()
+  const { signIn, signInWithGoogle } = useAuth()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -21,7 +22,7 @@ export default function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: 
     }
 
     setIsLoading(true)
-    const { error } = await login(email, password)
+    const { error } = await signIn(email, password)
     setIsLoading(false)
 
     if (!error) {
@@ -35,30 +36,20 @@ export default function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: 
     }
   }
 
-  const handleGoogleLoginInit = () => {
+  const handleGoogleLoginInit = async () => {
     setIsLoading(true)
-    setTimeout(() => {
-      const mockedOAuthEmail = email.trim() || 'Etwartjr@gmail.com'
-      const foundUser = (users || []).find(
-        (u) => u.email.toLowerCase() === mockedOAuthEmail.toLowerCase(),
-      )
+    const { error } = await signInWithGoogle()
 
-      if (foundUser) {
-        toast({
-          title: `Bem-vindo(a), ${foundUser.name}!`,
-          description: 'Acesso via Google concluído.',
-        })
-        login(foundUser)
-        // Avoid setting isLoading to false here to prevent unmount race condition
-      } else {
-        setIsLoading(false)
-        toast({
-          title: 'Conta não encontrada',
-          description: 'Nenhum usuário registrado com este e-mail do Google.',
-          variant: 'destructive',
-        })
-      }
-    }, 1500)
+    if (!error) {
+      toast({ title: 'Login realizado com sucesso.' })
+    } else {
+      setIsLoading(false)
+      toast({
+        title: 'Erro ao entrar com Google',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
+    }
   }
 
   return (

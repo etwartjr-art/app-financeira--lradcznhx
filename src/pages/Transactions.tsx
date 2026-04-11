@@ -31,6 +31,8 @@ import { cn } from '@/lib/utils'
 import { toast } from '@/hooks/use-toast'
 import { MonthSelector } from '@/components/MonthSelector'
 
+import { TableSkeleton, ErrorState, EmptyState } from '@/components/StateFeedback'
+
 export default function Transactions() {
   const {
     transactions,
@@ -40,6 +42,9 @@ export default function Transactions() {
     cards,
     categories,
     currentMonth,
+    isLoading,
+    error,
+    retry,
   } = useFinance()
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
@@ -59,40 +64,64 @@ export default function Transactions() {
 
   const ORIGINS = ['Conta Principal', 'Dinheiro', ...(cards || []).map((c) => c.name)]
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!newTx.description || !newTx.amount)
       return toast({ title: 'Preencha os campos obrigatórios.', variant: 'destructive' })
     const localDate = newTx.date
       ? new Date(`${newTx.date}T12:00:00Z`).toISOString()
       : new Date().toISOString()
 
-    if (editingTx) {
-      updateTransaction(editingTx.id, { ...newTx, amount: Number(newTx.amount), date: localDate })
-      setEditingTx(null)
-      toast({ title: 'Transação atualizada.' })
-    } else {
-      addTransaction({
-        description: newTx.description,
-        amount: Number(newTx.amount),
-        type: newTx.type as any,
-        category: newTx.category!,
-        origin: newTx.origin!,
-        date: localDate,
-        tags: newTx.tags,
-      })
+    try {
+      if (editingTx) {
+        await updateTransaction(editingTx.id, {
+          ...newTx,
+          amount: Number(newTx.amount),
+          date: localDate,
+        })
+        setEditingTx(null)
+        toast({ title: 'Atualizado com sucesso' })
+      } else {
+        await addTransaction({
+          description: newTx.description,
+          amount: Number(newTx.amount),
+          type: newTx.type as any,
+          category: newTx.category!,
+          origin: newTx.origin!,
+          date: localDate,
+          tags: newTx.tags,
+        })
+        toast({ title: 'Criado com sucesso' })
+      }
       setIsAddOpen(false)
-      toast({ title: 'Transação salva!' })
+      setNewTx({
+        type: 'expense',
+        amount: 0,
+        description: '',
+        category: safeCategories[0]?.name || 'Outros',
+        origin: 'Conta Principal',
+        date: new Date().toISOString().split('T')[0],
+        tags: '',
+      })
+    } catch (err) {
+      toast({
+        title: 'Erro ao salvar transação',
+        description: 'Tente novamente.',
+        variant: 'destructive',
+      })
     }
-    setNewTx({
-      type: 'expense',
-      amount: 0,
-      description: '',
-      category: safeCategories[0]?.name || 'Outros',
-      origin: 'Conta Principal',
-      date: new Date().toISOString().split('T')[0],
-      tags: '',
-    })
   }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteTransaction(id)
+      toast({ title: 'Removido com sucesso' })
+    } catch (err) {
+      toast({ title: 'Erro ao remover', variant: 'destructive' })
+    }
+  }
+
+  if (isLoading && !transactions.length) return <TableSkeleton />
+  if (error) return <ErrorState message={error} onRetry={retry} />
 
   const openEdit = (t: Transaction) => {
     setEditingTx(t)
@@ -233,10 +262,7 @@ export default function Transactions() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-slate-400 hover:text-red-400"
-                      onClick={() => {
-                        deleteTransaction(t.id)
-                        toast({ title: 'Excluída' })
-                      }}
+                      onClick={() => handleDelete(t.id)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -246,25 +272,8 @@ export default function Transactions() {
             ))}
             {filteredList.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="h-64 text-center">
-                  <div className="flex flex-col items-center justify-center text-slate-500 space-y-3">
-                    <div className="w-12 h-12 rounded-full bg-slate-800/50 flex items-center justify-center">
-                      <Receipt className="w-6 h-6 text-slate-400" />
-                    </div>
-                    <p className="text-base font-medium text-slate-300">
-                      Nenhuma transação encontrada
-                    </p>
-                    <p className="text-sm">
-                      Você ainda não possui transações cadastradas neste período.
-                    </p>
-                    <Button
-                      variant="link"
-                      className="text-[#0f766e] hover:text-[#0f766e]/80 mt-2 h-auto p-0"
-                      onClick={() => setIsAddOpen(true)}
-                    >
-                      Criar primeira transação
-                    </Button>
-                  </div>
+                <TableCell colSpan={6}>
+                  <EmptyState />
                 </TableCell>
               </TableRow>
             )}

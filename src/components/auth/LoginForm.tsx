@@ -14,36 +14,24 @@ export default function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: 
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleManualLogin = (e: React.FormEvent) => {
+  const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email || !password) {
       return toast({ title: 'Preencha todos os campos', variant: 'destructive' })
     }
 
-    const user = (users || []).find(
-      (u) => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password,
-    )
+    setIsLoading(true)
+    const { error } = await login(email, password)
+    setIsLoading(false)
 
-    if (user) {
-      toast({ title: `Bem-vindo(a), ${user.name}!`, description: 'Login realizado com sucesso.' })
-      login(user)
+    if (!error) {
+      toast({ title: `Login realizado com sucesso.` })
     } else {
-      const userExists = (users || []).some(
-        (u) => u.email.toLowerCase() === email.trim().toLowerCase(),
-      )
-      if (userExists) {
-        toast({
-          title: 'Credenciais inválidas',
-          description: 'Senha incorreta.',
-          variant: 'destructive',
-        })
-      } else {
-        toast({
-          title: 'Usuário não encontrado',
-          description: 'Verifique o e-mail digitado.',
-          variant: 'destructive',
-        })
-      }
+      toast({
+        title: 'Credenciais inválidas',
+        description: 'Verifique o e-mail e senha informados.',
+        variant: 'destructive',
+      })
     }
   }
 

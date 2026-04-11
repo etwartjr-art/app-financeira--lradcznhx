@@ -16,8 +16,14 @@ import { useFinance } from '@/stores/FinanceContext'
 import { CashFlowChart, CategoryExpensesChart } from '@/components/dashboard/Charts'
 import { MonthSelector } from '@/components/MonthSelector'
 
+import { DashboardSkeleton, ErrorState } from '@/components/StateFeedback'
+
 export default function Dashboard() {
-  const { balance, transactions, cards, categories, currentMonth } = useFinance()
+  const { balance, transactions, cards, categories, currentMonth, isLoading, error, retry } =
+    useFinance()
+
+  if (isLoading && !transactions.length) return <DashboardSkeleton />
+  if (error) return <ErrorState message={error} onRetry={retry} />
 
   const currentMonthTx = useMemo(
     () =>

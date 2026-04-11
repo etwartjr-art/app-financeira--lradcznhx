@@ -23,8 +23,10 @@ import { cn } from '@/lib/utils'
 
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
+import { TableSkeleton, ErrorState, EmptyState } from '@/components/StateFeedback'
+
 export default function AnnualReport() {
-  const { transactions } = useFinance()
+  const { transactions, isLoading, error, retry } = useFinance()
   const [year, setYear] = useState(new Date().getFullYear())
 
   const reportData = useMemo(() => {
@@ -63,6 +65,9 @@ export default function AnnualReport() {
   )
   if (!availableYears.includes(year)) availableYears.push(year)
   availableYears.sort((a, b) => b - a)
+
+  if (isLoading && !transactions.length) return <TableSkeleton />
+  if (error) return <ErrorState message={error} onRetry={retry} />
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-8 animate-fade-in max-w-7xl mx-auto">
@@ -195,27 +200,40 @@ export default function AnnualReport() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {reportData.map((d) => (
-              <TableRow key={d.month} className="border-slate-800/50 hover:bg-slate-800/30">
-                <TableCell className="font-medium text-slate-200">{d.month}</TableCell>
-                <TableCell className="text-right text-emerald-500 font-medium">
-                  R${' '}
-                  {(Number(d.Receitas) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </TableCell>
-                <TableCell className="text-right text-red-500 font-medium">
-                  - R${' '}
-                  {(Number(d.Despesas) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </TableCell>
-                <TableCell
-                  className={cn(
-                    'text-right font-bold',
-                    d.Saldo >= 0 ? 'text-emerald-500' : 'text-red-500',
-                  )}
-                >
-                  R$ {(Number(d.Saldo) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            {reportData.every((d) => d.Receitas === 0 && d.Despesas === 0) ? (
+              <TableRow>
+                <TableCell colSpan={4}>
+                  <EmptyState />
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              reportData.map((d) => (
+                <TableRow key={d.month} className="border-slate-800/50 hover:bg-slate-800/30">
+                  <TableCell className="font-medium text-slate-200">{d.month}</TableCell>
+                  <TableCell className="text-right text-emerald-500 font-medium">
+                    R${' '}
+                    {(Number(d.Receitas) || 0).toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                    })}
+                  </TableCell>
+                  <TableCell className="text-right text-red-500 font-medium">
+                    - R${' '}
+                    {(Number(d.Despesas) || 0).toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                    })}
+                  </TableCell>
+                  <TableCell
+                    className={cn(
+                      'text-right font-bold',
+                      d.Saldo >= 0 ? 'text-emerald-500' : 'text-red-500',
+                    )}
+                  >
+                    R${' '}
+                    {(Number(d.Saldo) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </Card>

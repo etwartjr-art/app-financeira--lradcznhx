@@ -1,4 +1,10 @@
 import React, { createContext, useContext, useState, useMemo, useEffect, useCallback } from 'react'
+import pb from '@/lib/pocketbase/client'
+import { useRealtime } from '@/hooks/use-realtime'
+import * as txService from '@/services/transactions'
+import * as cardService from '@/services/cards'
+import * as catService from '@/services/categories'
+import * as userService from '@/services/users'
 
 export type Transaction = {
   id: string
@@ -47,6 +53,9 @@ export type User = {
 type FinanceContextType = {
   currentUser: User | null
   isLoggedIn: boolean
+  isLoading: boolean
+  error: string | null
+  retry: () => void
   balance: number
   transactions: Transaction[]
   cards: Card[]
@@ -54,251 +63,161 @@ type FinanceContextType = {
   users: User[]
   currentMonth: Date
   setCurrentMonth: (date: Date) => void
-  login: (user: User) => void
+  login: (email: string, pass: string) => Promise<{ error: any }>
   logout: () => void
-  addTransaction: (tx: Omit<Transaction, 'id' | 'userId'>) => void
-  updateTransaction: (id: string, txData: Partial<Transaction>) => void
-  deleteTransaction: (id: string) => void
-  addCard: (card: Omit<Card, 'id' | 'userId'>) => void
-  updateCard: (id: string, cardData: Partial<Card>) => void
-  deleteCard: (id: string) => void
-  addCategory: (cat: Omit<Category, 'id' | 'userId'>) => void
-  updateCategory: (id: string, catData: Partial<Category>) => void
-  deleteCategory: (id: string) => void
-  addUser: (user: Omit<User, 'id'>) => User
-  updateUser: (id: string, userData: Partial<User>) => void
-  deleteUser: (id: string) => void
+  addTransaction: (tx: Omit<Transaction, 'id' | 'userId'>) => Promise<void>
+  updateTransaction: (id: string, txData: Partial<Transaction>) => Promise<void>
+  deleteTransaction: (id: string) => Promise<void>
+  addCard: (card: Omit<Card, 'id' | 'userId' | 'used'>) => Promise<void>
+  updateCard: (id: string, cardData: Partial<Card>) => Promise<void>
+  deleteCard: (id: string) => Promise<void>
+  addCategory: (cat: Omit<Category, 'id' | 'userId'>) => Promise<void>
+  updateCategory: (id: string, catData: Partial<Category>) => Promise<void>
+  deleteCategory: (id: string) => Promise<void>
+  addUser: (user: Omit<User, 'id' | 'createdAt'>) => Promise<void>
+  updateUser: (id: string, userData: Partial<User>) => Promise<void>
+  deleteUser: (id: string) => Promise<void>
 }
 
 const FinanceContext = createContext<FinanceContextType | null>(null)
 
-function loadState<T>(key: string, fallback: T): T {
-  try {
-    const saved = localStorage.getItem(key)
-    if (!saved) return fallback
-    const parsed = JSON.parse(saved)
-    if (Array.isArray(fallback) && !Array.isArray(parsed)) return fallback
-    return parsed !== null ? parsed : fallback
-  } catch (err) {
-    console.error(`Failed to load ${key}:`, err)
-    return fallback
-  }
-}
-
-function saveState(key: string, value: any) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value))
-  } catch (error) {
-    console.error(`Failed to save ${key}:`, error)
-  }
-}
-
-const defaultUsers: User[] = [
-  {
-    id: '1',
-    name: 'Etwart Jr',
-    email: 'Etwartjr@gmail.com',
-    password: 'Samuel@1234@',
-    role: 'Admin',
-    situation: 'Ativo',
-    createdAt: '2023-01-15T10:00:00Z',
-  },
-  {
-    id: '2',
-    name: 'Maria Souza',
-    email: 'maria@financasetw.com.br',
-    password: 'password123',
-    role: 'User',
-    situation: 'Devedor',
-    createdAt: '2023-11-20T10:00:00Z',
-  },
-  {
-    id: '3',
-    name: 'Carlos Santos',
-    email: 'carlos@financasetw.com.br',
-    password: 'password123',
-    role: 'User',
-    situation: 'Ativo',
-    createdAt: '2024-01-05T10:00:00Z',
-  },
-]
-
-const defaultCatsFor = (userId: string) => [
-  { id: Math.random().toString(), userId, name: 'Alimentação', color: '#ef4444' },
-  { id: Math.random().toString(), userId, name: 'Transporte', color: '#3b82f6' },
-  { id: Math.random().toString(), userId, name: 'Moradia', color: '#10b981' },
-  { id: Math.random().toString(), userId, name: 'Lazer', color: '#f59e0b' },
-  { id: Math.random().toString(), userId, name: 'Saúde', color: '#ec4899' },
-  { id: Math.random().toString(), userId, name: 'Salário', color: '#22c55e' },
-  { id: Math.random().toString(), userId, name: 'Outros', color: '#64748b' },
-]
-
-const initialCategories: Category[] = [
-  ...defaultCatsFor('1'),
-  ...defaultCatsFor('2'),
-  ...defaultCatsFor('3'),
-]
-
 export const FinanceProvider = ({ children }: { children: React.ReactNode }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(() =>
-    loadState('@finance-app:user', null),
+  const [currentUser, setCurrentUser] = useState<User | null>(
+    (pb.authStore.record as unknown as User) || null,
   )
-  const isLoggedIn = !!currentUser
+  const isLoggedIn = pb.authStore.isValid
+
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [users, setUsers] = useState<User[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [cards, setCards] = useState<Card[]>([])
+  const [transactions, setTransactions] = useState<Transaction[]>([])
 
-  const [users, setUsers] = useState<User[]>(() => loadState('@finance-app:users', defaultUsers))
-  const [categories, setCategories] = useState<Category[]>(() =>
-    loadState('@finance-app:categories', initialCategories),
-  )
-  const [cards, setCards] = useState<Card[]>(() => loadState('@finance-app:cards', []))
-  const [transactions, setTransactions] = useState<Transaction[]>(() =>
-    loadState('@finance-app:transactions', []),
-  )
+  useEffect(() => {
+    return pb.authStore.onChange((token, model) => {
+      setCurrentUser((model as unknown as User) || null)
+    })
+  }, [])
 
-  useEffect(() => saveState('@finance-app:users', users), [users])
-  useEffect(() => saveState('@finance-app:categories', categories), [categories])
-  useEffect(() => saveState('@finance-app:cards', cards), [cards])
-  useEffect(() => saveState('@finance-app:transactions', transactions), [transactions])
+  const loadData = useCallback(async () => {
+    if (!isLoggedIn) return
+    setIsLoading(true)
+    setError(null)
+    try {
+      const [txs, cds, cats, usrs] = await Promise.all([
+        txService.getAll(),
+        cardService.getAll(),
+        catService.getAll(),
+        currentUser?.role === 'Admin' ? userService.getAll() : Promise.resolve([]),
+      ])
+      setTransactions(txs)
+      setCards(cds)
+      setCategories(cats)
+      setUsers(usrs)
+    } catch (err) {
+      console.error(err)
+      setError('Erro ao carregar dados. Verifique sua conexão e tente novamente.')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [isLoggedIn, currentUser?.role])
 
-  const userTransactions = useMemo(
-    () => (transactions || []).filter((t) => t.userId === currentUser?.id),
-    [transactions, currentUser],
-  )
-  const userCards = useMemo(
-    () => (cards || []).filter((c) => c.userId === currentUser?.id),
-    [cards, currentUser],
-  )
-  const userCategories = useMemo(
-    () => (categories || []).filter((c) => c.userId === currentUser?.id),
-    [categories, currentUser],
-  )
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  useRealtime('transactions', () => {
+    if (isLoggedIn) txService.getAll().then(setTransactions)
+  })
+  useRealtime('cards', () => {
+    if (isLoggedIn) cardService.getAll().then(setCards)
+  })
+  useRealtime('categories', () => {
+    if (isLoggedIn) catService.getAll().then(setCategories)
+  })
+  useRealtime('users', () => {
+    if (isLoggedIn && currentUser?.role === 'Admin') userService.getAll().then(setUsers)
+  })
 
   const balance = useMemo(() => {
-    return userTransactions.reduce((acc, tx) => {
-      if (!userCards.some((c) => c.name === tx.origin)) {
+    return transactions.reduce((acc, tx) => {
+      if (!cards.some((c) => c.name === tx.origin)) {
         return tx.type === 'income'
           ? acc + (Number(tx.amount) || 0)
           : acc - (Number(tx.amount) || 0)
       }
       return acc
     }, 0)
-  }, [userTransactions, userCards])
+  }, [transactions, cards])
 
-  const login = useCallback((user: User) => {
+  const login = useCallback(async (email: string, pass: string) => {
     try {
-      localStorage.setItem('@finance-app:isLoggedIn', 'true')
-      localStorage.setItem('@finance-app:user', JSON.stringify(user))
+      await pb.collection('users').authWithPassword(email, pass)
+      return { error: null }
     } catch (err) {
-      console.error(err)
+      return { error: err }
     }
-    setCurrentUser(user)
   }, [])
 
   const logout = useCallback(() => {
-    try {
-      localStorage.removeItem('@finance-app:isLoggedIn')
-      localStorage.removeItem('@finance-app:user')
-    } catch (err) {
-      console.error(err)
-    }
-    setCurrentUser(null)
+    pb.authStore.clear()
   }, [])
 
-  const addUser = useCallback((user: Omit<User, 'id'>) => {
-    const newUser = { ...user, id: Math.random().toString() }
-    setUsers((p) => [...(p || []), newUser])
-    setCategories((p) => [...(p || []), ...defaultCatsFor(newUser.id)])
-    return newUser
-  }, [])
+  const addUser = async (user: Omit<User, 'id' | 'createdAt'>) => {
+    await userService.create(user)
+  }
+  const updateUser = async (id: string, data: Partial<User>) => {
+    await userService.update(id, data)
+  }
+  const deleteUser = async (id: string) => {
+    await userService.remove(id)
+  }
 
-  const updateUser = useCallback((id: string, data: Partial<User>) => {
-    setUsers((p) => (p || []).map((u) => (u.id === id ? { ...u, ...data } : u)))
-  }, [])
+  const addCategory = async (cat: Omit<Category, 'id' | 'userId'>) => {
+    await catService.create(cat)
+  }
+  const updateCategory = async (id: string, data: Partial<Category>) => {
+    await catService.update(id, data)
+  }
+  const deleteCategory = async (id: string) => {
+    await catService.remove(id)
+  }
 
-  const deleteUser = useCallback(
-    (id: string) => {
-      setUsers((p) => {
-        const arr = p || []
-        const userToDelete = arr.find((u) => u.id === id)
-        if (userToDelete?.role === 'Admin') return arr
-        return arr.filter((u) => u.id !== id)
-      })
-      setTransactions((p) => (p || []).filter((t) => t.userId !== id))
-      setCards((p) => (p || []).filter((c) => c.userId !== id))
-      setCategories((p) => (p || []).filter((c) => c.userId !== id))
-      if (currentUser?.id === id) logout()
-    },
-    [currentUser, logout],
-  )
+  const addCard = async (card: Omit<Card, 'id' | 'userId' | 'used'>) => {
+    await cardService.create(card)
+  }
+  const updateCard = async (id: string, data: Partial<Card>) => {
+    await cardService.update(id, data)
+  }
+  const deleteCard = async (id: string) => {
+    await cardService.remove(id)
+  }
 
-  const addCategory = useCallback(
-    (cat: Omit<Category, 'id' | 'userId'>) => {
-      if (currentUser)
-        setCategories((p) => [
-          ...(p || []),
-          { ...cat, id: Math.random().toString(), userId: currentUser.id },
-        ])
-    },
-    [currentUser],
-  )
-
-  const updateCategory = useCallback((id: string, data: Partial<Category>) => {
-    setCategories((p) => (p || []).map((c) => (c.id === id ? { ...c, ...data } : c)))
-  }, [])
-
-  const deleteCategory = useCallback((id: string) => {
-    setCategories((p) => (p || []).filter((c) => c.id !== id))
-  }, [])
-
-  const addCard = useCallback(
-    (card: Omit<Card, 'id' | 'userId'>) => {
-      if (currentUser)
-        setCards((p) => [
-          ...(p || []),
-          { ...card, id: Math.random().toString(), userId: currentUser.id },
-        ])
-    },
-    [currentUser],
-  )
-
-  const updateCard = useCallback((id: string, data: Partial<Card>) => {
-    setCards((p) => (p || []).map((c) => (c.id === id ? { ...c, ...data } : c)))
-  }, [])
-
-  const deleteCard = useCallback((id: string) => {
-    setCards((p) => (p || []).filter((c) => c.id !== id))
-  }, [])
-
-  const addTransaction = useCallback(
-    (tx: Omit<Transaction, 'id' | 'userId'>) => {
-      if (currentUser)
-        setTransactions((p) => [
-          { ...tx, id: Math.random().toString(), userId: currentUser.id },
-          ...(p || []),
-        ])
-    },
-    [currentUser],
-  )
-
-  const updateTransaction = useCallback((id: string, data: Partial<Transaction>) => {
-    setTransactions((p) =>
-      (p || []).map((t) => (t.id === id ? ({ ...t, ...data } as Transaction) : t)),
-    )
-  }, [])
-
-  const deleteTransaction = useCallback((id: string) => {
-    setTransactions((p) => (p || []).filter((t) => t.id !== id))
-  }, [])
+  const addTransaction = async (tx: Omit<Transaction, 'id' | 'userId'>) => {
+    await txService.create(tx)
+  }
+  const updateTransaction = async (id: string, data: Partial<Transaction>) => {
+    await txService.update(id, data)
+  }
+  const deleteTransaction = async (id: string) => {
+    await txService.remove(id)
+  }
 
   const value = useMemo(
     () => ({
       currentUser,
       isLoggedIn,
+      isLoading,
+      error,
+      retry: loadData,
       balance,
-      transactions: userTransactions,
-      cards: userCards,
-      categories: userCategories,
-      users: users || [],
+      transactions,
+      cards,
+      categories,
+      users,
       currentMonth,
       setCurrentMonth,
       login,
@@ -319,27 +238,18 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     [
       currentUser,
       isLoggedIn,
+      isLoading,
+      error,
+      loadData,
       balance,
-      userTransactions,
-      userCards,
-      userCategories,
+      transactions,
+      cards,
+      categories,
       users,
       currentMonth,
       setCurrentMonth,
       login,
       logout,
-      addTransaction,
-      updateTransaction,
-      deleteTransaction,
-      addCard,
-      updateCard,
-      deleteCard,
-      addCategory,
-      updateCategory,
-      deleteCategory,
-      addUser,
-      updateUser,
-      deleteUser,
     ],
   )
 

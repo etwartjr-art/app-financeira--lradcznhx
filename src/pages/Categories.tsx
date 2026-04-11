@@ -21,8 +21,11 @@ import { Tags, Edit, Trash2, Plus } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { useFinance, type Category } from '@/stores/FinanceContext'
 
+import { TableSkeleton, ErrorState, EmptyState } from '@/components/StateFeedback'
+
 export default function Categories() {
-  const { categories, addCategory, updateCategory, deleteCategory } = useFinance()
+  const { categories, addCategory, updateCategory, deleteCategory, isLoading, error, retry } =
+    useFinance()
   const [modal, setModal] = useState<{
     open: boolean
     mode: 'add' | 'edit'
@@ -33,24 +36,35 @@ export default function Categories() {
     cat: { color: '#0f766e' },
   })
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!modal.cat.name || !modal.cat.color) {
       return toast({ title: 'Preencha todos os campos.', variant: 'destructive' })
     }
-    if (modal.mode === 'add') {
-      addCategory({ name: modal.cat.name, color: modal.cat.color })
-      toast({ title: 'Categoria criada com sucesso!' })
-    } else {
-      updateCategory(modal.cat.id!, { name: modal.cat.name, color: modal.cat.color })
-      toast({ title: 'Categoria atualizada!' })
+    try {
+      if (modal.mode === 'add') {
+        await addCategory({ name: modal.cat.name, color: modal.cat.color })
+        toast({ title: 'Criado com sucesso' })
+      } else {
+        await updateCategory(modal.cat.id!, { name: modal.cat.name, color: modal.cat.color })
+        toast({ title: 'Atualizado com sucesso' })
+      }
+      setModal({ open: false, mode: 'add', cat: { color: '#0f766e' } })
+    } catch (err) {
+      toast({ title: 'Erro ao salvar', variant: 'destructive' })
     }
-    setModal({ open: false, mode: 'add', cat: { color: '#0f766e' } })
   }
 
-  const handleDelete = (id: string) => {
-    deleteCategory(id)
-    toast({ title: 'Categoria excluída.' })
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteCategory(id)
+      toast({ title: 'Removido com sucesso' })
+    } catch (err) {
+      toast({ title: 'Erro ao remover', variant: 'destructive' })
+    }
   }
+
+  if (isLoading && !categories.length) return <TableSkeleton />
+  if (error) return <ErrorState message={error} onRetry={retry} />
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-8 animate-fade-in max-w-5xl mx-auto">
@@ -116,8 +130,8 @@ export default function Categories() {
             ))}
             {categories.length === 0 && (
               <TableRow>
-                <TableCell colSpan={3} className="text-center py-8 text-slate-500">
-                  Nenhuma categoria cadastrada.
+                <TableCell colSpan={3}>
+                  <EmptyState />
                 </TableCell>
               </TableRow>
             )}

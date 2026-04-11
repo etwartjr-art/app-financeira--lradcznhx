@@ -27,9 +27,21 @@ import { toast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { MonthSelector } from '@/components/MonthSelector'
 
+import { CardsSkeleton, ErrorState, EmptyState } from '@/components/StateFeedback'
+
 export default function Cards() {
-  const { cards, addCard, updateCard, deleteCard, transactions, currentMonth, addTransaction } =
-    useFinance()
+  const {
+    cards,
+    addCard,
+    updateCard,
+    deleteCard,
+    transactions,
+    currentMonth,
+    addTransaction,
+    isLoading,
+    error,
+    retry,
+  } = useFinance()
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [editingCard, setEditingCard] = useState<CardType | null>(null)
   const [expenseCard, setExpenseCard] = useState<CardType | null>(null)
@@ -49,53 +61,78 @@ export default function Cards() {
     dueDate: new Date().toISOString().split('T')[0],
   })
 
-  const handleSaveCard = () => {
+  const handleSaveCard = async () => {
     const limitNum = parseFloat(newCard.limit)
     if (!newCard.name || isNaN(limitNum))
       return toast({ title: 'Preencha corretamente.', variant: 'destructive' })
-    addCard({
-      name: newCard.name,
-      type: 'Crédito',
-      last4: newCard.last4 || '0000',
-      limit: limitNum,
-      used: 0,
-      color: '#ff7800',
-      closingDate: newCard.closingDate,
-      dueDate: newCard.dueDate,
-      status: newCard.status,
-    })
-    setIsAddOpen(false)
-    toast({ title: 'Cartão adicionado!' })
+
+    try {
+      await addCard({
+        name: newCard.name,
+        type: 'Crédito',
+        last4: newCard.last4 || '0000',
+        limit: limitNum,
+        color: '#ff7800',
+        closingDate: newCard.closingDate,
+        dueDate: newCard.dueDate,
+        status: newCard.status,
+      })
+      setIsAddOpen(false)
+      toast({ title: 'Criado com sucesso' })
+    } catch (err) {
+      toast({ title: 'Erro ao salvar cartão', variant: 'destructive' })
+    }
   }
 
-  const handleUpdateCard = () => {
+  const handleUpdateCard = async () => {
     if (!editingCard) return
-    updateCard(editingCard.id, editingCard)
-    setEditingCard(null)
-    toast({ title: 'Cartão atualizado!' })
+    try {
+      await updateCard(editingCard.id, editingCard)
+      setEditingCard(null)
+      toast({ title: 'Atualizado com sucesso' })
+    } catch (err) {
+      toast({ title: 'Erro ao atualizar', variant: 'destructive' })
+    }
   }
 
-  const handleAddExpense = () => {
+  const handleDeleteCard = async (id: string) => {
+    try {
+      await deleteCard(id)
+      toast({ title: 'Removido com sucesso' })
+    } catch (err) {
+      toast({ title: 'Erro ao remover', variant: 'destructive' })
+    }
+  }
+
+  const handleAddExpense = async () => {
     if (!expenseCard || !newExp.description || !newExp.amount)
       return toast({ title: 'Preencha os campos obrigatórios.', variant: 'destructive' })
-    addTransaction({
-      description: newExp.description,
-      amount: Number(newExp.amount),
-      type: 'expense',
-      category: 'Outros',
-      origin: expenseCard.name,
-      date: new Date(`${newExp.date}T12:00:00Z`).toISOString(),
-      tags: newExp.tags,
-    })
-    setExpenseCard(null)
-    setNewExp({
-      description: '',
-      amount: '',
-      date: new Date().toISOString().split('T')[0],
-      tags: '',
-    })
-    toast({ title: 'Despesa vinculada ao cartão com sucesso!' })
+
+    try {
+      await addTransaction({
+        description: newExp.description,
+        amount: Number(newExp.amount),
+        type: 'expense',
+        category: 'Outros',
+        origin: expenseCard.name,
+        date: new Date(`${newExp.date}T12:00:00Z`).toISOString(),
+        tags: newExp.tags,
+      })
+      setExpenseCard(null)
+      setNewExp({
+        description: '',
+        amount: '',
+        date: new Date().toISOString().split('T')[0],
+        tags: '',
+      })
+      toast({ title: 'Criado com sucesso' })
+    } catch (err) {
+      toast({ title: 'Erro ao adicionar despesa', variant: 'destructive' })
+    }
   }
+
+  if (isLoading && !cards.length) return <CardsSkeleton />
+  if (error) return <ErrorState message={error} onRetry={retry} />
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-8 animate-fade-in max-w-7xl mx-auto">
@@ -239,7 +276,7 @@ export default function Cards() {
                         <Edit2 className="w-4 h-4 text-slate-400" />
                       </button>
                       <button
-                        onClick={() => deleteCard(card.id)}
+                        onClick={() => handleDeleteCard(card.id)}
                         className="hover:bg-red-500/20 p-1 rounded"
                       >
                         <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-400" />

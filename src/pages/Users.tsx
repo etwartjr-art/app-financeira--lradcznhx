@@ -26,8 +26,10 @@ import { useFinance, type User } from '@/stores/FinanceContext'
 import { format, differenceInMonths, differenceInYears } from 'date-fns'
 import { UserDialog } from '@/components/UserDialog'
 
+import { TableSkeleton, ErrorState, EmptyState } from '@/components/StateFeedback'
+
 export default function Users() {
-  const { users, addUser, updateUser, deleteUser } = useFinance()
+  const { users, addUser, updateUser, deleteUser, isLoading, error, retry } = useFinance()
   const [isMounted, setIsMounted] = useState(false)
 
   const [modal, setModal] = useState<{ open: boolean; mode: 'add' | 'edit'; user: Partial<User> }>({
@@ -65,35 +67,39 @@ export default function Users() {
     return isNaN(d.getTime()) ? '-' : format(d, 'dd/MM/yyyy')
   }
 
-  const handleSaveUser = () => {
+  const handleSaveUser = async () => {
     if (!modal.user.name || !modal.user.email || !modal.user.situation) {
       return toast({ title: 'Preencha os campos obrigatórios!', variant: 'destructive' })
     }
-    if (modal.mode === 'add') {
-      if (!modal.user.password)
-        return toast({
-          title: 'A senha é obrigatória para novos usuários!',
-          variant: 'destructive',
-        })
-      addUser({ ...modal.user, createdAt: new Date().toISOString() } as Omit<User, 'id'>)
-      toast({ title: 'Usuário adicionado com sucesso!' })
-    } else {
-      updateUser(modal.user.id!, modal.user)
-      toast({ title: 'Usuário atualizado com sucesso!' })
+    try {
+      if (modal.mode === 'add') {
+        if (!modal.user.password)
+          return toast({
+            title: 'A senha é obrigatória para novos usuários!',
+            variant: 'destructive',
+          })
+        await addUser({ ...modal.user } as Omit<User, 'id' | 'createdAt'>)
+        toast({ title: 'Criado com sucesso' })
+      } else {
+        await updateUser(modal.user.id!, modal.user)
+        toast({ title: 'Atualizado com sucesso' })
+      }
+      setModal({ open: false, mode: 'add', user: { role: 'User', situation: 'Ativo' } })
+    } catch (err) {
+      toast({ title: 'Erro ao salvar', variant: 'destructive' })
     }
-    setModal({ open: false, mode: 'add', user: { role: 'User', situation: 'Ativo' } })
   }
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deleteConfirm.userId) return
 
     const userId = deleteConfirm.userId
     setDeleteConfirm({ open: false, userId: null })
 
     try {
-      deleteUser(userId)
-      toast({ title: 'Usuário removido com sucesso' })
-    } catch (error) {
+      await deleteUser(userId)
+      toast({ title: 'Removido com sucesso' })
+    } catch (err) {
       toast({
         title: 'Erro ao remover',
         description: 'Não foi possível completar a operação. Tente novamente.',
@@ -104,6 +110,9 @@ export default function Users() {
 
   // Prevent rendering until mounted to ensure safe DOM node insertions and avoid router crashes
   if (!isMounted) return null
+
+  if (isLoading && !users.length) return <TableSkeleton />
+  if (error) return <ErrorState message={error} onRetry={retry} />
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-8 animate-fade-in max-w-7xl mx-auto">

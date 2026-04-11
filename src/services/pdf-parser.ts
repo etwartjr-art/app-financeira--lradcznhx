@@ -19,7 +19,6 @@ export interface ParsedPDFData {
     holder?: string
     bank?: string
     flag?: string
-    // Legacy fields for backward compatibility with other components
     last4?: string
     holderName?: string
     bankName?: string
@@ -34,7 +33,6 @@ export interface ParsedPDFData {
     usedLimit?: number
     availableLimit?: number
   }
-  // Legacy fields for backward compatibility
   limits?: {
     total?: number
     used?: number
@@ -44,7 +42,28 @@ export interface ParsedPDFData {
   futureInstallments: ParsedPDFInstallment[]
 }
 
+const parseAmount = (text: string): number => {
+  if (!text) return 0
+  const cleaned = text.replace(/R\$/gi, '').trim()
+  const normalized = cleaned.replace(/\./g, '').replace(',', '.')
+  const value = parseFloat(normalized)
+  return isNaN(value) ? 0 : value
+}
+
+const parseDate = (dateString: string): string => {
+  if (!dateString) return ''
+  const match = dateString.match(/(\d{2})\/(\d{2})\/(\d{4})/)
+  if (match) {
+    return `${match[3]}-${match[2]}-${match[1]}`
+  }
+  return dateString
+}
+
 export const parsePDFFile = async (file: File): Promise<ParsedPDFData> => {
+  if (!file || file.size === 0) {
+    throw new Error('Arquivo vazio')
+  }
+
   let text = ''
 
   try {
@@ -61,123 +80,167 @@ export const parsePDFFile = async (file: File): Promise<ParsedPDFData> => {
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i)
       const content = await page.getTextContent()
-      const strings = content.items.map((item: { str: string }) => item.str)
-      extractedText += strings.join(' ') + '\n'
+
+      let lastY: number | undefined
+      let pageText = ''
+
+      // Reconstruct lines based on Y coordinate to accurately parse tabular data
+      for (const item of content.items as any[]) {
+        if (lastY !== item.transform[5]) {
+          pageText += '\n'
+          lastY = item.transform[5]
+        } else {
+          pageText += ' '
+        }
+        pageText += item.str
+      }
+      extractedText += pageText + '\n'
     }
     text = extractedText
   } catch (error) {
-    console.log('Erro ao processar o PDF:', error)
-    throw new Error('Nao foi possivel ler o PDF. Tente outro arquivo.')
+    console.error('Erro ao processar o PDF:', error)
+    throw new Error('Não foi possível ler o PDF. Tente outro arquivo.')
   }
 
-  const validateText = text.toLowerCase()
-  if (
-    !validateText.includes('fatura') &&
-    !validateText.includes('cartao') &&
-    !validateText.includes('limite') &&
-    !validateText.includes('vencimento')
-  ) {
-    throw new Error('Arquivo PDF invalido ou nao eh uma fatura de cartao')
+  if (!text || !text.trim()) {
+    throw new Error('Não foi possível extrair texto do PDF')
   }
 
-  // Card Info extraction
-  const cardNumberMatch = text.match(/(\d{4}\.){3}\d{4}|5522\w+/)
-  const cardNumber = cardNumberMatch ? cardNumberMatch[0] : '1234'
-  const last4 = cardNumber.slice(-4)
+  console.log('PDF Text Extract (first 500 chars):', text.substring(0, 500))
 
-  let holder = 'Titular do Cartao'
-  if (text.match(/Titular/i)) holder = 'Titular Identificado'
+  const isStatement = /fatura|cart[aã]o|limite|vencimento/i.test(text)
+  if (!isStatement) {
+    throw new Error('Não é uma fatura de cartão válida')
+  }
+
+  // Card Metadata Extraction
+  let cardNumber = '1234'
+  let last4 = '1234'
+  const cardNumberMatch = text.match(
+    /(?:\d{4}[.\s]){3}\d{4}|\b(?:5522|4\d{3})\d{12}\b|XXXX\.XXXX\.XXXX\.(\d{4})/i,
+  )
+  if (cardNumberMatch) {
+    cardNumber = cardNumberMatch[0]
+    const digitsOnly = cardNumber.replace(/\D/g, '')
+    if (digitsOnly.length >= 4) {
+      last4 = digitsOnly.slice(-4)
+    } else if (cardNumberMatch[1]) {
+      last4 = cardNumberMatch[1]
+    }
+  }
+
+  let holder = 'Titular Desconhecido'
+  const titularMatch = text.match(/Titular[:\s]+([A-Z\s]+)/i)
+  if (titularMatch && titularMatch[1]) {
+    holder = titularMatch[1].trim()
+  } else {
+    const uppercaseMatch = text.match(/\b([A-Z]{2,}\s+[A-Z]{2,}(?:\s+[A-Z]{2,})?)\b/)
+    if (uppercaseMatch) {
+      holder = uppercaseMatch[1].trim()
+    }
+  }
 
   let bank = 'Banco Desconhecido'
-  if (text.match(/Itau/i)) bank = 'Itaú'
-  else if (text.match(/C6/i)) bank = 'C6 Bank'
-  else if (text.match(/Bradesco/i)) bank = 'Bradesco'
-  else if (text.match(/ETWART/i)) bank = 'ETWART'
+  if (/ita[uú]/i.test(text)) bank = 'Itaú'
+  else if (/bradesco/i.test(text)) bank = 'Bradesco'
+  else if (/santander/i.test(text)) bank = 'Santander'
+  else if (/c6\s*bank/i.test(text)) bank = 'C6 Bank'
+  else if (/nubank/i.test(text)) bank = 'Nubank'
 
-  let flag = 'Mastercard'
-  if (text.match(/Visa/i)) flag = 'Visa'
+  let flag = 'Desconhecida'
+  if (/mastercard/i.test(text)) flag = 'Mastercard'
+  else if (/visa/i.test(text)) flag = 'Visa'
+  else if (/elo/i.test(text)) flag = 'Elo'
+  else if (/amex|american express/i.test(text)) flag = 'Amex'
 
-  // Statement Period extraction
-  const datePattern = /(\d{2})\/(\d{2})\/(\d{4})/g
-  const datesMatch = [...text.matchAll(datePattern)]
-  const formatExtractedDate = (match: RegExpMatchArray) => `${match[3]}-${match[2]}-${match[1]}`
+  let tier = ''
+  if (/platinum/i.test(text)) tier = ' Platinum'
+  else if (/gold/i.test(text)) tier = ' Gold'
+  else if (/black/i.test(text)) tier = ' Black'
+  else if (/infinite/i.test(text)) tier = ' Infinite'
 
-  const issuanceDate = datesMatch.length > 0 ? formatExtractedDate(datesMatch[0]) : undefined
-  const dueDate = datesMatch.length > 1 ? formatExtractedDate(datesMatch[1]) : undefined
-  const nextClosingDate = datesMatch.length > 2 ? formatExtractedDate(datesMatch[2]) : undefined
+  if (flag !== 'Desconhecida') {
+    flag += tier
+  }
 
-  // Limits extraction
-  const amountPattern = /R\$\s*([\d.,]+)/g
-  const amountsMatch = [...text.matchAll(amountPattern)]
-  const parseAmount = (val: string) => parseFloat(val.replace(/\./g, '').replace(',', '.'))
-  const amounts = amountsMatch.map((m) => parseAmount(m[1]))
+  // Statement Period Extraction
+  const dates = [...text.matchAll(/(\d{2}\/\d{2}\/\d{4})/g)].map((m) => parseDate(m[1]))
+  const issuanceDate = dates.length > 0 ? dates[0] : undefined
+  const dueDate = dates.length > 1 ? dates[1] : undefined
+  const nextClosingDate = dates.length > 2 ? dates[2] : undefined
 
-  const totalLimit = amounts.length > 0 ? amounts[0] : 0
-  const usedLimit = amounts.length > 1 ? amounts[1] : 0
-  const availableLimit = amounts.length > 2 ? amounts[2] : 0
+  // Credit Limits Extraction
+  let totalLimit = 0
+  let usedLimit = 0
+  let availableLimit = 0
 
-  // Transactions & Installments extraction
+  const limitTotalMatch = text.match(/Limite total.*?(?:R\$)?\s*(\d{1,3}(?:\.\d{3})*,\d{2})/i)
+  if (limitTotalMatch) totalLimit = parseAmount(limitTotalMatch[1])
+
+  const limitUsedMatch = text.match(/Limite utilizado.*?(?:R\$)?\s*(\d{1,3}(?:\.\d{3})*,\d{2})/i)
+  if (limitUsedMatch) usedLimit = parseAmount(limitUsedMatch[1])
+
+  const limitAvailMatch = text.match(
+    /Limite dispon[ií]vel.*?(?:R\$)?\s*(\d{1,3}(?:\.\d{3})*,\d{2})/i,
+  )
+  if (limitAvailMatch) {
+    availableLimit = parseAmount(limitAvailMatch[1])
+  } else if (totalLimit > 0) {
+    availableLimit = totalLimit - usedLimit
+  }
+
+  // Transactions & Installments Parsing
   const transactions: ParsedPDFTransaction[] = []
   const futureInstallments: ParsedPDFInstallment[] = []
 
+  const lines = text.split('\n')
+  let inInstallments = false
   const currentYear = new Date().getFullYear()
 
-  // Find occurrences of "compras parceladas" or "proximas faturas" to separate sections
-  const textLower = text.toLowerCase()
-  const installmentsIndex = Math.max(
-    textLower.indexOf('compras parceladas'),
-    textLower.indexOf('proximas faturas'),
-  )
-
-  const hasInstallmentsSection = installmentsIndex !== -1
-
-  // Extract simple DD/MM transaction rows
-  const rowPattern = /(\d{2})\/(\d{2})\s+([a-zA-Z0-9\s*.\-/]+?)\s+(\d{1,3}(?:\.\d{3})*,\d{2})/g
-  const rowMatches = [...text.matchAll(rowPattern)]
-
-  rowMatches.forEach((match) => {
-    const day = match[1]
-    const month = match[2]
-    const establishmentRaw = match[3].trim()
-    const amount = parseAmount(match[4])
-    const date = `${currentYear}-${month}-${day}`
-
-    const matchIndex = match.index ?? 0
-    const isFutureInstallment = hasInstallmentsSection && matchIndex > installmentsIndex
-
-    const installMatch = establishmentRaw.match(/(\d{1,2})\/(\d{1,2})$/)
-
-    if (isFutureInstallment || installMatch) {
-      futureInstallments.push({
-        date,
-        establishment: establishmentRaw.replace(/\s*\d{1,2}\/\d{1,2}$/, '').trim(),
-        amount,
-        installment: installMatch ? installMatch[0] : '1/1',
-      })
-    } else {
-      transactions.push({
-        date,
-        establishment: establishmentRaw,
-        amount,
-      })
+  for (const line of lines) {
+    const lowerLine = line.toLowerCase()
+    if (
+      lowerLine.includes('compras parceladas') ||
+      lowerLine.includes('próximas faturas') ||
+      lowerLine.includes('proximas faturas')
+    ) {
+      inInstallments = true
+      continue
     }
-  })
 
-  // Fallback mock if nothing is matched to satisfy user simulation
-  if (transactions.length === 0) {
-    const month = String(new Date().getMonth() + 1).padStart(2, '0')
-    transactions.push(
-      { date: `${currentYear}-${month}-05`, establishment: 'Uber Viagem', amount: 45.5 },
-      { date: `${currentYear}-${month}-10`, establishment: 'Restaurante Saboroso', amount: 120.0 },
+    const rowMatch = line.match(
+      /(?:^|\s)(\d{2}\/\d{2})\s+(.+?)\s+(?:R\$)?\s*(-?\d{1,3}(?:\.\d{3})*,\d{2})/,
     )
-    if (hasInstallmentsSection && futureInstallments.length === 0) {
-      futureInstallments.push({
-        date: `${currentYear}-${month}-15`,
-        establishment: 'Curso Ingles',
-        amount: 300.0,
-        installment: '1/3',
-      })
+    if (rowMatch) {
+      const dateStr = rowMatch[1]
+      const establishmentRaw = rowMatch[2].trim()
+      const amountStr = rowMatch[3]
+      const amount = parseAmount(amountStr)
+
+      const [day, month] = dateStr.split('/')
+      const date = `${currentYear}-${month}-${day}`
+
+      const installMatch = establishmentRaw.match(/(\d{1,2})\/(\d{1,2})$/)
+
+      if (inInstallments || installMatch) {
+        futureInstallments.push({
+          date,
+          establishment: establishmentRaw.replace(/\s*\d{1,2}\/\d{1,2}$/, '').trim(),
+          amount,
+          installment: installMatch ? installMatch[0] : '1/1',
+        })
+      } else {
+        transactions.push({
+          date,
+          establishment: establishmentRaw,
+          amount,
+        })
+      }
     }
+  }
+
+  if (transactions.length === 0 && totalLimit === 0 && last4 === '1234') {
+    throw new Error('Não é uma fatura de cartão válida')
   }
 
   const result: ParsedPDFData = {
@@ -209,7 +272,13 @@ export const parsePDFFile = async (file: File): Promise<ParsedPDFData> => {
     futureInstallments,
   }
 
-  console.log('Resultados da extração do PDF:', result)
+  console.log('Summary of parsed data:', {
+    cardInfo: result.cardInfo,
+    periods: result.statementPeriod,
+    limits: result.creditLimits,
+    transactionsCount: transactions.length,
+    installmentsCount: futureInstallments.length,
+  })
 
   return result
 }

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import {
@@ -9,32 +9,72 @@ import {
   CreditCard,
   BarChart3,
   Receipt,
+  ArrowUp,
+  ArrowDown,
+  AlertCircle,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { useFinance } from '@/stores/FinanceContext'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useFinance, Transaction } from '@/stores/FinanceContext'
 import { CashFlowChart, CategoryExpensesChart } from '@/components/dashboard/Charts'
 import { MonthSelector } from '@/components/MonthSelector'
-
 import { DashboardSkeleton, ErrorState } from '@/components/StateFeedback'
+import { useRealtime } from '@/hooks/use-realtime'
+import { useToast } from '@/hooks/use-toast'
 
 export default function Dashboard() {
-  const { balance, transactions, cards, categories, currentMonth, isLoading, error, retry } =
-    useFinance()
+  const {
+    balance,
+    transactions,
+    cards,
+    categories,
+    currentMonth,
+    isLoading: isContextLoading,
+    error: contextError,
+    retry: contextRetry,
+    getTransactionsByUser,
+    currentUser,
+  } = useFinance()
+  const { toast } = useToast()
 
-  const currentMonthTx = useMemo(
-    () =>
-      (transactions || []).filter((t) => {
-        if (!t.date) return false
-        const d = new Date(t.date)
-        if (isNaN(d.getTime())) return false
-        return (
-          d.getMonth() === currentMonth?.getMonth() &&
-          d.getFullYear() === currentMonth?.getFullYear()
-        )
-      }),
-    [transactions, currentMonth],
-  )
+  const [monthTransactions, setMonthTransactions] = useState<Transaction[]>([])
+  const [isTxLoading, setIsTxLoading] = useState(true)
+  const [txError, setTxError] = useState<string | null>(null)
+
+  const fetchMonthTransactions = useCallback(async () => {
+    if (!currentUser) return
+    try {
+      setTxError(null)
+      const data = await getTransactionsByUser(
+        currentUser.id,
+        currentMonth.getMonth(),
+        currentMonth.getFullYear(),
+      )
+      setMonthTransactions(data)
+    } catch (err) {
+      setTxError('Nao foi possivel carregar transacoes')
+      throw err
+    } finally {
+      setIsTxLoading(false)
+    }
+  }, [currentUser, currentMonth, getTransactionsByUser])
+
+  useEffect(() => {
+    setIsTxLoading(true)
+    fetchMonthTransactions().catch(() => {})
+  }, [fetchMonthTransactions])
+
+  useRealtime('transactions', (e) => {
+    if (e.record.user_id === currentUser?.id) {
+      fetchMonthTransactions().catch(() => {
+        toast({
+          title: 'Erro ao sincronizar transações',
+          variant: 'destructive',
+        })
+      })
+    }
+  })
 
   const cashFlowData = useMemo(() => {
     if (!currentMonth) return []
@@ -46,7 +86,7 @@ export default function Dashboard() {
     return Array.from({ length: daysInMonth }, (_, i) => {
       const day = i + 1
       const datePrefix = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-      const txForDay = currentMonthTx.filter((t) => t.date && t.date.startsWith(datePrefix))
+      const txForDay = monthTransactions.filter((t) => t.date && t.date.startsWith(datePrefix))
       return {
         name: String(day),
         Receitas: txForDay
@@ -57,7 +97,7 @@ export default function Dashboard() {
           .reduce((acc, t) => acc + (Number(t.amount) || 0), 0),
       }
     })
-  }, [currentMonthTx, currentMonth])
+  }, [monthTransactions, currentMonth])
 
   const catData = useMemo(
     () =>
@@ -65,30 +105,30 @@ export default function Dashboard() {
         .map((c) => ({
           name: c.name,
           color: c.color,
-          value: currentMonthTx
+          value: monthTransactions
             .filter((t) => t.type === 'expense' && t.category === c.name)
             .reduce((acc, t) => acc + (Number(t.amount) || 0), 0),
         }))
         .filter((d) => d.value > 0)
         .sort((a, b) => b.value - a.value),
-    [categories, currentMonthTx],
+    [categories, monthTransactions],
   )
 
-  if (isLoading && !transactions.length) return <DashboardSkeleton />
-  if (error) return <ErrorState message={error} onRetry={retry} />
+  if (isContextLoading && !transactions.length) return <DashboardSkeleton />
+  if (contextError) return <ErrorState message={contextError} onRetry={contextRetry} />
 
-  const receitas = currentMonthTx
+  const receitas = monthTransactions
     .filter((t) => t.type === 'income')
     .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
-  const despesas = currentMonthTx
+  const despesas = monthTransactions
     .filter((t) => t.type === 'expense')
     .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
   const economia = receitas - despesas
 
-  const gerais = currentMonthTx
+  const gerais = monthTransactions
     .filter((t) => t.type === 'expense' && !(cards || []).some((c) => c.name === t.origin))
     .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
-  const despesasCartoes = currentMonthTx
+  const despesasCartoes = monthTransactions
     .filter((t) => t.type === 'expense' && (cards || []).some((c) => c.name === t.origin))
     .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
   const totalConsolidado = gerais + despesasCartoes
@@ -256,7 +296,7 @@ export default function Dashboard() {
               </div>
             ) : (
               (cards || []).map((c) => {
-                const used = currentMonthTx
+                const used = monthTransactions
                   .filter((t) => t.type === 'expense' && t.origin === c.name)
                   .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
                 const limitNum = Number(c.limit) || 1
@@ -287,8 +327,10 @@ export default function Dashboard() {
 
       <Card className="bg-[#161925] border-slate-800 shadow-sm mt-2">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-base text-white font-semibold">Transações do Mês</CardTitle>
-          {currentMonthTx.length > 0 && (
+          <CardTitle className="text-base text-white font-semibold">
+            Últimas movimentações
+          </CardTitle>
+          {monthTransactions.length > 0 && (
             <Link
               to="/transactions"
               className="text-sm font-medium text-emerald-500 hover:text-emerald-400"
@@ -299,14 +341,58 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {currentMonthTx.length === 0 ? (
+            {isTxLoading ? (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center py-2 border-b border-slate-800/50">
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-[200px] bg-slate-800" />
+                    <Skeleton className="h-3 w-[150px] bg-slate-800/50" />
+                  </div>
+                  <Skeleton className="h-5 w-[100px] bg-slate-800" />
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-slate-800/50">
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-[180px] bg-slate-800" />
+                    <Skeleton className="h-3 w-[120px] bg-slate-800/50" />
+                  </div>
+                  <Skeleton className="h-5 w-[80px] bg-slate-800" />
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-[220px] bg-slate-800" />
+                    <Skeleton className="h-3 w-[160px] bg-slate-800/50" />
+                  </div>
+                  <Skeleton className="h-5 w-[120px] bg-slate-800" />
+                </div>
+              </div>
+            ) : txError ? (
+              <div className="flex flex-col items-center justify-center py-6 text-center space-y-3">
+                <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5 text-red-500" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-slate-300">
+                    Nao foi possivel carregar transacoes
+                  </p>
+                </div>
+                <Button
+                  onClick={() => {
+                    setIsTxLoading(true)
+                    fetchMonthTransactions()
+                  }}
+                  variant="outline"
+                  className="bg-transparent border-slate-700 hover:bg-slate-800"
+                >
+                  Tentar novamente
+                </Button>
+              </div>
+            ) : monthTransactions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-center space-y-3">
                 <div className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center">
                   <Receipt className="w-5 h-5 text-slate-400" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-slate-300">Sem transações no mês</p>
-                  <p className="text-xs text-slate-500">Registre suas receitas e despesas.</p>
+                  <p className="text-sm font-medium text-slate-300">Nenhuma transação neste mês</p>
                 </div>
                 <Button
                   asChild
@@ -317,34 +403,63 @@ export default function Dashboard() {
                 </Button>
               </div>
             ) : (
-              currentMonthTx.slice(0, 5).map((t) => {
-                const dateObj = new Date(t.date)
-                const safeDateStr = isNaN(dateObj.getTime()) ? '-' : format(dateObj, 'dd/MM/yyyy')
-                return (
-                  <div
-                    key={t.id}
-                    className="flex justify-between items-center py-2 border-b border-slate-800/50 last:border-0"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-slate-200">{t.description}</p>
-                      <p className="text-xs text-slate-500">
-                        {safeDateStr} • {t.origin}
-                      </p>
-                    </div>
+              <div className="animate-fade-in space-y-4">
+                {monthTransactions.slice(0, 5).map((t) => {
+                  const dateObj = new Date(t.date)
+                  const safeDateStr = isNaN(dateObj.getTime())
+                    ? '-'
+                    : format(
+                        new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000),
+                        'dd/MM/yyyy',
+                      )
+                  const cat = categories.find((c) => c.name === t.category)
+
+                  return (
                     <div
-                      className={`font-semibold ${t.type === 'income' ? 'text-emerald-500' : 'text-slate-300'}`}
+                      key={t.id}
+                      className="flex justify-between items-center py-2 border-b border-slate-800/50 last:border-0"
                     >
-                      <span>{t.type === 'income' ? '+ ' : '- '}</span>
-                      <span>
-                        R${' '}
-                        {(Number(t.amount) || 0).toLocaleString('pt-BR', {
-                          minimumFractionDigits: 2,
-                        })}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <p className="text-sm font-medium text-slate-200">{t.description}</p>
+                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                          <span>{safeDateStr}</span>
+                          <span>•</span>
+                          <span>{t.origin}</span>
+                          {t.category && (
+                            <>
+                              <span>•</span>
+                              <span
+                                className="px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                                style={{
+                                  backgroundColor: cat ? `${cat.color}20` : '#334155',
+                                  color: cat ? cat.color : '#cbd5e1',
+                                }}
+                              >
+                                {t.category}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div
+                        className={`flex items-center gap-1 font-semibold ${t.type === 'income' ? 'text-emerald-500' : 'text-slate-300'}`}
+                      >
+                        {t.type === 'income' ? (
+                          <ArrowUp className="w-4 h-4" />
+                        ) : (
+                          <ArrowDown className="w-4 h-4" />
+                        )}
+                        <span>
+                          R${' '}
+                          {(Number(t.amount) || 0).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                          })}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                )
-              })
+                  )
+                })}
+              </div>
             )}
           </div>
         </CardContent>

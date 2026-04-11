@@ -77,6 +77,7 @@ type FinanceContextType = {
   addUser: (user: Omit<User, 'id' | 'createdAt'>) => Promise<void>
   updateUser: (id: string, userData: Partial<User>) => Promise<void>
   deleteUser: (id: string) => Promise<void>
+  getTransactionsByUser: (userId: string, month: number, year: number) => Promise<Transaction[]>
 }
 
 const FinanceContext = createContext<FinanceContextType | null>(null)
@@ -234,6 +235,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       addUser,
       updateUser,
       deleteUser,
+      getTransactionsByUser: txService.getTransactionsByUser,
     }),
     [
       currentUser,

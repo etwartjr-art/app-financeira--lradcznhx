@@ -39,3 +39,16 @@ export const update = async (id: string, data: Partial<Transaction>) => {
 export const remove = async (id: string) => {
   await pb.collection('transactions').delete(id)
 }
+
+export const getTransactionsByUser = async (userId: string, month: number, year: number) => {
+  const monthStr = String(month + 1).padStart(2, '0')
+  const lastDay = new Date(year, month + 1, 0).getDate()
+  const startStr = `${year}-${monthStr}-01 00:00:00.000Z`
+  const endStr = `${year}-${monthStr}-${String(lastDay).padStart(2, '0')} 23:59:59.999Z`
+
+  const records = await pb.collection('transactions').getFullList({
+    filter: `user_id = "${userId}" && date >= "${startStr}" && date <= "${endStr}"`,
+    sort: '-date',
+  })
+  return records.map(mapRecord)
+}

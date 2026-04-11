@@ -22,9 +22,6 @@ export default function Dashboard() {
   const { balance, transactions, cards, categories, currentMonth, isLoading, error, retry } =
     useFinance()
 
-  if (isLoading && !transactions.length) return <DashboardSkeleton />
-  if (error) return <ErrorState message={error} onRetry={retry} />
-
   const currentMonthTx = useMemo(
     () =>
       (transactions || []).filter((t) => {
@@ -38,24 +35,6 @@ export default function Dashboard() {
       }),
     [transactions, currentMonth],
   )
-
-  const receitas = currentMonthTx
-    .filter((t) => t.type === 'income')
-    .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
-  const despesas = currentMonthTx
-    .filter((t) => t.type === 'expense')
-    .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
-  const economia = receitas - despesas
-
-  const gerais = currentMonthTx
-    .filter((t) => t.type === 'expense' && !(cards || []).some((c) => c.name === t.origin))
-    .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
-  const despesasCartoes = currentMonthTx
-    .filter((t) => t.type === 'expense' && (cards || []).some((c) => c.name === t.origin))
-    .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
-  const totalConsolidado = gerais + despesasCartoes
-  const percGerais = totalConsolidado ? (gerais / totalConsolidado) * 100 : 0
-  const percCartoes = totalConsolidado ? (despesasCartoes / totalConsolidado) * 100 : 0
 
   const cashFlowData = useMemo(() => {
     if (!currentMonth) return []
@@ -94,6 +73,27 @@ export default function Dashboard() {
         .sort((a, b) => b.value - a.value),
     [categories, currentMonthTx],
   )
+
+  if (isLoading && !transactions.length) return <DashboardSkeleton />
+  if (error) return <ErrorState message={error} onRetry={retry} />
+
+  const receitas = currentMonthTx
+    .filter((t) => t.type === 'income')
+    .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
+  const despesas = currentMonthTx
+    .filter((t) => t.type === 'expense')
+    .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
+  const economia = receitas - despesas
+
+  const gerais = currentMonthTx
+    .filter((t) => t.type === 'expense' && !(cards || []).some((c) => c.name === t.origin))
+    .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
+  const despesasCartoes = currentMonthTx
+    .filter((t) => t.type === 'expense' && (cards || []).some((c) => c.name === t.origin))
+    .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
+  const totalConsolidado = gerais + despesasCartoes
+  const percGerais = totalConsolidado ? (gerais / totalConsolidado) * 100 : 0
+  const percCartoes = totalConsolidado ? (despesasCartoes / totalConsolidado) * 100 : 0
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-8 animate-fade-in max-w-7xl mx-auto">

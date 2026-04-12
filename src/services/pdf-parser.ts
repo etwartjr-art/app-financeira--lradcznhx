@@ -3,16 +3,12 @@ export interface ParsedPDFTransaction {
   establishment: string
   location?: string
   amount: number
-  installment?: string
-  category?: string
 }
 
 export interface ParsedPDFInstallment {
   dueDate: string // YYYY-MM-DD
-  date?: string
   establishment: string
   amount: number
-  installment?: string
 }
 
 export interface ParsedPDFData {
@@ -21,9 +17,6 @@ export interface ParsedPDFData {
     holder?: string
     bank?: string
     flag?: string
-    last4?: string
-    holderName?: string
-    bankName?: string
   }
   statementPeriod: {
     issuanceDate?: string
@@ -31,14 +24,9 @@ export interface ParsedPDFData {
     nextClosingDate?: string
   }
   creditLimits: {
-    totalLimit?: number
-    usedLimit?: number
-    availableLimit?: number
-  }
-  limits?: {
-    total?: number
-    used?: number
-    available?: number
+    totalLimit: number
+    usedLimit: number
+    availableLimit: number
   }
   transactions: ParsedPDFTransaction[]
   futureInstallments: ParsedPDFInstallment[]
@@ -51,13 +39,28 @@ const parseAmount = (text: string): number => {
   return isNaN(value) ? 0 : value
 }
 
-const parseDateString = (d: string, m: string, y: string): string => {
-  return `${y}-${m}-${d}`
+const parseDate = (dateStr: string): string => {
+  const parts = dateStr.split('/')
+  if (parts.length >= 3) {
+    return `${parts[2]}-${parts[1]}-${parts[0]}`
+  } else if (parts.length === 2) {
+    const currentYear = new Date().getFullYear()
+    return `${currentYear}-${parts[1]}-${parts[0]}`
+  }
+  return dateStr
 }
 
-export const parsePDFFile = async (file: File): Promise<ParsedPDFData> => {
-  if (!file || file.size === 0) {
-    throw new Error('Arquivo vazio')
+export const parsePDFFile = async (file: File | ArrayBuffer): Promise<ParsedPDFData> => {
+  let arrayBuffer: ArrayBuffer
+  if (file instanceof ArrayBuffer) {
+    arrayBuffer = file
+  } else if (file instanceof File) {
+    if (file.size === 0) {
+      throw new Error('Não foi possível ler o PDF. Tente outro arquivo.')
+    }
+    arrayBuffer = await file.arrayBuffer()
+  } else {
+    throw new Error('Não foi possível ler o PDF. Tente outro arquivo.')
   }
 
   let fullText = ''
@@ -66,10 +69,8 @@ export const parsePDFFile = async (file: File): Promise<ParsedPDFData> => {
     // @ts-expect-error dynamic import without types
     const pdfjsLib =
       await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.mjs')
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
 
-    const arrayBuffer = await file.arrayBuffer()
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
 
     for (let i = 1; i <= pdf.numPages; i++) {
@@ -89,25 +90,21 @@ export const parsePDFFile = async (file: File): Promise<ParsedPDFData> => {
       fullText += '\n'
     }
   } catch (error) {
-    console.error('Erro ao processar o PDF:', error)
-    throw new Error('Nao foi possivel ler o PDF. Tente outro arquivo.')
+    console.error(error)
+    throw new Error('Não foi possível ler o PDF. Tente outro arquivo.')
   }
 
-  if (!fullText || !fullText.trim()) {
-    throw new Error('Nao foi possivel extrair texto do PDF')
+  if (!fullText || fullText.trim().length < 50) {
+    throw new Error('Não foi possível ler o PDF. Tente outro arquivo.')
   }
 
-  console.log(`Extracted text length: ${fullText.length}`)
-
-  // Card Info Extraction
+  // Card & Identity Extraction
   let cardNumber = ''
-  let last4 = ''
   const cardMatch = fullText.match(/5522[\dX.]*|XXXX\.XXXX\.XXXX\.\d{4}/i)
   if (cardMatch) {
-    cardNumber = cardMatch[0]
-    const digitsOnly = cardNumber.replace(/\D/g, '')
+    const digitsOnly = cardMatch[0].replace(/\D/g, '')
     if (digitsOnly.length >= 4) {
-      last4 = digitsOnly.slice(-4)
+      cardNumber = digitsOnly.slice(-4)
     }
   }
 
@@ -132,31 +129,30 @@ export const parsePDFFile = async (file: File): Promise<ParsedPDFData> => {
     flag = flagMatch[0].trim()
   }
 
-  // Statement Period Extraction
+  // Statement Period & Limits Extraction
   let issuanceDate = ''
-  const issuanceMatch1 = fullText.match(/Emissao:\s*(\d{2})\/(\d{2})\/(\d{4})/i)
+  const issuanceMatch1 = fullText.match(/Emissao:\s*(\d{2}\/\d{2}\/\d{4})/i)
   if (issuanceMatch1) {
-    issuanceDate = parseDateString(issuanceMatch1[1], issuanceMatch1[2], issuanceMatch1[3])
+    issuanceDate = parseDate(issuanceMatch1[1])
   } else {
-    const issuanceMatch2 = fullText.match(/(\d{2})\/(\d{2})\/(\d{4})/)
+    const issuanceMatch2 = fullText.match(/(\d{2}\/\d{2}\/\d{4})/)
     if (issuanceMatch2) {
-      issuanceDate = parseDateString(issuanceMatch2[1], issuanceMatch2[2], issuanceMatch2[3])
+      issuanceDate = parseDate(issuanceMatch2[1])
     }
   }
 
   let dueDate = ''
-  const dueDateMatch = fullText.match(/Vencimento:\s*(\d{2})\/(\d{2})\/(\d{4})/i)
+  const dueDateMatch = fullText.match(/Vencimento:\s*(\d{2}\/\d{2}\/\d{4})/i)
   if (dueDateMatch) {
-    dueDate = parseDateString(dueDateMatch[1], dueDateMatch[2], dueDateMatch[3])
+    dueDate = parseDate(dueDateMatch[1])
   }
 
   let nextClosingDate = ''
-  const nextClosingMatch = fullText.match(/proxima.*fechamento:\s*(\d{2})\/(\d{2})\/(\d{4})/i)
+  const nextClosingMatch = fullText.match(/proxima.*fechamento:\s*(\d{2}\/\d{2}\/\d{4})/i)
   if (nextClosingMatch) {
-    nextClosingDate = parseDateString(nextClosingMatch[1], nextClosingMatch[2], nextClosingMatch[3])
+    nextClosingDate = parseDate(nextClosingMatch[1])
   }
 
-  // Financial Limits
   let totalLimit = 0
   const totalLimitMatch = fullText.match(/Limite\s+total.*?R\$\s*([\d.,]+)/i)
   if (totalLimitMatch) {
@@ -173,6 +169,8 @@ export const parsePDFFile = async (file: File): Promise<ParsedPDFData> => {
   const availableLimitMatch = fullText.match(/Limite\s+disponivel.*?R\$\s*([\d.,]+)/i)
   if (availableLimitMatch) {
     availableLimit = parseAmount(availableLimitMatch[1])
+  } else {
+    availableLimit = totalLimit - usedLimit
   }
 
   // Transactions & Installments
@@ -181,7 +179,6 @@ export const parsePDFFile = async (file: File): Promise<ParsedPDFData> => {
 
   const lines = fullText.split('\n')
   let inInstallments = false
-  const currentYear = new Date().getFullYear()
 
   for (const line of lines) {
     if (/Compras parceladas|proximas faturas|Parcelado/i.test(line)) {
@@ -189,15 +186,16 @@ export const parsePDFFile = async (file: File): Promise<ParsedPDFData> => {
       continue
     }
 
-    const rowMatch = line.match(/(?:^|\s)(\d{2})\/(\d{2})\s+(.+?)\s+R\$\s*([\d.,]+)/)
+    const rowMatch = line.match(
+      /(?:^|\s)(\d{2}\/\d{2})\s+(.+?)\s+(?:R\$\s*([\d.,]+)|([\d.,]+)\s*$)/,
+    )
     if (rowMatch) {
-      const day = rowMatch[1]
-      const month = rowMatch[2]
-      const establishmentRaw = rowMatch[3].trim()
-      const amount = parseAmount(rowMatch[4])
-      const date = `${currentYear}-${month}-${day}` // Fallback year
+      const dateStr = rowMatch[1]
+      const establishmentRaw = rowMatch[2].trim()
+      const amountStr = rowMatch[3] || rowMatch[4]
+      const amount = parseAmount(amountStr)
+      const date = parseDate(dateStr)
 
-      // Extract location if establishment ends with a known city/state format
       let establishment = establishmentRaw
       let location = ''
 
@@ -210,10 +208,8 @@ export const parsePDFFile = async (file: File): Promise<ParsedPDFData> => {
       if (inInstallments) {
         futureInstallments.push({
           dueDate: date,
-          date: date,
           establishment,
           amount,
-          installment: '1/1',
         })
       } else {
         transactions.push({
@@ -227,8 +223,8 @@ export const parsePDFFile = async (file: File): Promise<ParsedPDFData> => {
   }
 
   // Validation
-  if (!cardNumber && totalLimit === 0 && transactions.length === 0) {
-    throw new Error('Nao eh uma fatura de cartao valida')
+  if (!cardNumber && totalLimit <= 0 && transactions.length === 0) {
+    throw new Error('Não é uma fatura de cartão válida')
   }
 
   return {
@@ -237,9 +233,6 @@ export const parsePDFFile = async (file: File): Promise<ParsedPDFData> => {
       holder,
       bank,
       flag,
-      last4,
-      holderName: holder,
-      bankName: bank,
     },
     statementPeriod: {
       issuanceDate,
@@ -250,11 +243,6 @@ export const parsePDFFile = async (file: File): Promise<ParsedPDFData> => {
       totalLimit,
       usedLimit,
       availableLimit,
-    },
-    limits: {
-      total: totalLimit,
-      used: usedLimit,
-      available: availableLimit,
     },
     transactions,
     futureInstallments,

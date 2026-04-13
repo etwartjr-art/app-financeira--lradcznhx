@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-13T20:50:20.693Z",
+  "generatedAt": "2026-04-13T21:05:07.823Z",
   "collections": [
     {
       "name": "users",
@@ -315,6 +315,62 @@
         }
       ],
       "indexes": ["CREATE INDEX `idx_transactions_fitId` ON `transactions` (fitId)"]
+    },
+    {
+      "name": "banks",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && user_id = @request.auth.id",
+        "view": "@request.auth.id != '' && user_id = @request.auth.id",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && user_id = @request.auth.id",
+        "delete": "@request.auth.id != '' && user_id = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "user_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "bank_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "agency",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "account_number",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_banks_user_id ON banks (user_id)",
+        "CREATE INDEX idx_banks_updated ON banks (updated DESC)"
+      ]
     }
   ]
 }

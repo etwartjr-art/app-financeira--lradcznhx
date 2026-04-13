@@ -9,6 +9,7 @@ import {
   Upload,
   Tags,
   BarChart3,
+  Landmark,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/transactions', label: 'Transações', icon: ArrowRightLeft },
   { href: '/cards', label: 'Cartões', icon: CreditCard },
+  { href: '/bancos', label: 'Bancos', icon: Landmark },
   { href: '/categories', label: 'Categorias', icon: Tags },
   { href: '/annual-report', label: 'Relatório Anual', icon: BarChart3 },
   { href: '/import', label: 'Importar', icon: Upload },

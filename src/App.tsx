@@ -18,6 +18,8 @@ import AnnualReport from '@/pages/AnnualReport'
 import NotFound from '@/pages/NotFound'
 import logoImg from '@/assets/financas-pessoal-etw-5d9f2.png'
 
+const BanksPage = React.lazy(() => import('@/pages/BanksPage'))
+
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { hasError: boolean; errorMsg: string }
@@ -106,6 +108,20 @@ function AppContent() {
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/transactions/:id" element={<TransactionDetail />} />
             <Route path="/cards" element={<Cards />} />
+            <Route
+              path="/bancos"
+              element={
+                <React.Suspense
+                  fallback={
+                    <div className="flex h-full w-full items-center justify-center p-8">
+                      <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-emerald-500"></div>
+                    </div>
+                  }
+                >
+                  <BanksPage />
+                </React.Suspense>
+              }
+            />
             <Route path="/annual-report" element={<AnnualReport />} />
             <Route path="/categories" element={<Categories />} />
             <Route path="/import" element={<Import />} />

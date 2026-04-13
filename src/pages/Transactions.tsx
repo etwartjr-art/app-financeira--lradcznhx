@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { format } from 'date-fns'
 import { useFinance, type Transaction } from '@/stores/FinanceContext'
 import { Button } from '@/components/ui/button'
@@ -155,18 +155,20 @@ export default function Transactions() {
     setNewTx({ ...t, date: t.date?.split('T')[0] || '' })
   }
 
-  const filteredList = (transactions || []).filter((t) => {
-    if (!t.date) return false
-    const d = new Date(t.date)
-    if (isNaN(d.getTime())) return false
-    const matchesMonth =
-      d.getMonth() === currentMonth?.getMonth() && d.getFullYear() === currentMonth?.getFullYear()
-    const matchesSearch =
-      (t.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (t.category || '').toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesFilter = filter === 'all' ? true : t.type === filter
-    return matchesMonth && matchesSearch && matchesFilter
-  })
+  const filteredList = useMemo(() => {
+    return (transactions || []).filter((t) => {
+      if (!t.date) return false
+      const d = new Date(t.date)
+      if (isNaN(d.getTime())) return false
+      const matchesMonth =
+        d.getMonth() === currentMonth?.getMonth() && d.getFullYear() === currentMonth?.getFullYear()
+      const matchesSearch =
+        (t.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (t.category || '').toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesFilter = filter === 'all' ? true : t.type === filter
+      return matchesMonth && matchesSearch && matchesFilter
+    })
+  }, [transactions, currentMonth, searchTerm, filter])
 
   const getFormattedDate = (dateStr?: string) => {
     if (!dateStr) return '-'

@@ -130,18 +130,26 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     loadData()
   }, [loadData])
 
-  useRealtime('transactions', () => {
+  const handleTransactionsChange = useCallback(() => {
     if (isLoggedIn) txService.getAll().then(setTransactions)
-  })
-  useRealtime('cards', () => {
+  }, [isLoggedIn])
+
+  const handleCardsChange = useCallback(() => {
     if (isLoggedIn) cardService.getAll().then(setCards)
-  })
-  useRealtime('categories', () => {
+  }, [isLoggedIn])
+
+  const handleCategoriesChange = useCallback(() => {
     if (isLoggedIn) catService.getAll().then(setCategories)
-  })
-  useRealtime('users', () => {
+  }, [isLoggedIn])
+
+  const handleUsersChange = useCallback(() => {
     if (isLoggedIn && currentUser?.role === 'Admin') userService.getAll().then(setUsers)
-  })
+  }, [isLoggedIn, currentUser?.role])
+
+  useRealtime('transactions', handleTransactionsChange)
+  useRealtime('cards', handleCardsChange)
+  useRealtime('categories', handleCategoriesChange)
+  useRealtime('users', handleUsersChange)
 
   const balance = useMemo(() => {
     return transactions.reduce((acc, tx) => {

@@ -69,18 +69,35 @@ class RequestManager {
 // Global request manager to throttle concurrent requests to PocketBase
 const requestManager = new RequestManager(3)
 
-export const getAll = async () => {
-  return requestManager.run(async () => {
-    const records = await pb.collection('transactions').getFullList({ sort: '-date' })
-    return records.map(mapRecord)
+const fetchPromises = new Map<string, Promise<unknown>>()
+
+function deduplicate<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  if (fetchPromises.has(key)) {
+    return fetchPromises.get(key) as Promise<T>
+  }
+  const promise = fn().finally(() => {
+    fetchPromises.delete(key)
   })
+  fetchPromises.set(key, promise)
+  return promise
+}
+
+export const getAll = async () => {
+  return deduplicate('getAll', () =>
+    requestManager.run(async () => {
+      const records = await pb.collection('transactions').getFullList({ sort: '-date' })
+      return records.map(mapRecord)
+    }),
+  )
 }
 
 export const getById = async (id: string) => {
-  return requestManager.run(async () => {
-    const record = await pb.collection('transactions').getOne(id)
-    return mapRecord(record)
-  })
+  return deduplicate(`getById-${id}`, () =>
+    requestManager.run(async () => {
+      const record = await pb.collection('transactions').getOne(id)
+      return mapRecord(record)
+    }),
+  )
 }
 
 export const create = async (data: Omit<TransactionExt, 'id' | 'userId'>) => {
@@ -113,16 +130,18 @@ export const clearAllTransactions = async () => {
 }
 
 export const getTransactionsByUser = async (userId: string, month: number, year: number) => {
-  return requestManager.run(async () => {
-    const monthStr = String(month + 1).padStart(2, '0')
-    const lastDay = new Date(year, month + 1, 0).getDate()
-    const startStr = `${year}-${monthStr}-01 00:00:00.000Z`
-    const endStr = `${year}-${monthStr}-${String(lastDay).padStart(2, '0')} 23:59:59.999Z`
+  return deduplicate(`getByUser-${userId}-${month}-${year}`, () =>
+    requestManager.run(async () => {
+      const monthStr = String(month + 1).padStart(2, '0')
+      const lastDay = new Date(year, month + 1, 0).getDate()
+      const startStr = `${year}-${monthStr}-01 00:00:00.000Z`
+      const endStr = `${year}-${monthStr}-${String(lastDay).padStart(2, '0')} 23:59:59.999Z`
 
-    const records = await pb.collection('transactions').getFullList({
-      filter: `user_id = "${userId}" && date >= "${startStr}" && date <= "${endStr}"`,
-      sort: '-date',
-    })
-    return records.map(mapRecord)
-  })
+      const records = await pb.collection('transactions').getFullList({
+        filter: `user_id = "${userId}" && date >= "${startStr}" && date <= "${endStr}"`,
+        sort: '-date',
+      })
+      return records.map(mapRecord)
+    }),
+  )
 }

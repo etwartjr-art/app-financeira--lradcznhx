@@ -46,7 +46,7 @@ export class PDFParserService {
     return dateStr
   }
 
-  public async parseFile(file: File | ArrayBuffer): Promise<ParsedStatement> {
+  public async parsePDF(file: File | ArrayBuffer): Promise<ParsedStatement> {
     try {
       let arrayBuffer: ArrayBuffer
       if (file instanceof ArrayBuffer) {
@@ -76,16 +76,17 @@ export class PDFParserService {
         fullText += pageText + '\n'
       }
 
-      const cardInfoMatch = fullText.match(/cartao.*?(\d{4})$/im)
-      const holderMatch = fullText.match(/titular:\s*([\w\s]+)/im)
-      const bankMatch = fullText.match(/banco:\s*([\w\s]+)/im)
-      const flagMatch = fullText.match(/bandeira:\s*([\w\s]+)/im)
+      const cardInfoMatch =
+        fullText.match(/cartao.*?(\d{4})$/im) || fullText.match(/cartao.*?(\d{4})$/i)
+      const holderMatch = fullText.match(/titular:\s*([\w\s]+)/i)
+      const bankMatch = fullText.match(/banco:\s*([\w\s]+)/i)
+      const flagMatch = fullText.match(/bandeira:\s*([\w\s]+)/i)
 
       const periodMatch = fullText.match(
-        /periodo:\s*(\d{2}\/\d{2}\/\d{4})\s*a\s*(\d{2}\/\d{2}\/\d{4})/im,
+        /periodo:\s*(\d{2}\/\d{2}\/\d{4})\s*a\s*(\d{2}\/\d{2}\/\d{4})/i,
       )
-      const totalLimitMatch = fullText.match(/limite total:\s*R\$\s*([\d.,]+)/im)
-      const availableLimitMatch = fullText.match(/limite disponivel:\s*R\$\s*([\d.,]+)/im)
+      const totalLimitMatch = fullText.match(/limite total:\s*R\$\s*([\d.,]+)/i)
+      const availableLimitMatch = fullText.match(/limite disponivel:\s*R\$\s*([\d.,]+)/i)
 
       const transactions: ParsedStatement['transactions'] = []
       const transRegex = /(\d{2}\/\d{2}\/\d{4})\s+([^\n]+?)\s+R\$\s*([\d.,]+)/g
@@ -137,7 +138,10 @@ export class PDFParserService {
         futureInstallments,
       }
     } catch (error: any) {
-      if (error.message && error.message.includes('Dados insuficientes')) {
+      if (
+        error.message ===
+        'Dados insuficientes no extrato: cartao, limite ou transacoes nao encontrados'
+      ) {
         throw error
       }
       throw new Error(`Erro ao processar PDF: ${error.message || 'Erro desconhecido'}`)

@@ -118,7 +118,7 @@ export default function Import() {
 
     try {
       const parserService = new PDFParserService()
-      const parsedData = await parserService.parseFile(file)
+      const parsedData = await parserService.parsePDF(file)
       const cards = await getCards()
 
       const matchedCard = cards.find((c) => c.last4 === parsedData.cardInfo.cardNumber)

@@ -1,3 +1,7 @@
+import * as pdfjsLib from 'pdfjs-dist'
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
+
 export interface ParsedStatement {
   cardInfo: {
     cardNumber: string
@@ -46,26 +50,17 @@ export class PDFParserService {
     return dateStr
   }
 
-  public async parsePDF(file: File | ArrayBuffer): Promise<ParsedStatement> {
+  public async parseFile(file: File): Promise<ParsedStatement> {
     try {
-      let arrayBuffer: ArrayBuffer
-      if (file instanceof ArrayBuffer) {
-        arrayBuffer = file
-      } else if (file instanceof File) {
-        if (file.size === 0) {
-          throw new Error('Arquivo vazio')
-        }
-        arrayBuffer = await file.arrayBuffer()
-      } else {
+      if (!(file instanceof File)) {
         throw new Error('Formato de arquivo invalido')
       }
+      if (file.size === 0) {
+        throw new Error('Arquivo vazio')
+      }
 
+      const arrayBuffer = await file.arrayBuffer()
       let fullText = ''
-
-      // Local Document Processing Engine
-      // @ts-expect-error dynamic import without types
-      const pdfjsLib = await import(/* @vite-ignore */ '/pdf.min.mjs')
-      pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
 
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
 
@@ -114,9 +109,7 @@ export class PDFParserService {
       const totalLimit = totalLimitMatch ? this.parseAmount(totalLimitMatch[1]) : 0
 
       if (!cardNumber && totalLimit === 0 && transactions.length === 0) {
-        throw new Error(
-          'Dados insuficientes no extrato: cartao, limite ou transacoes nao encontrados',
-        )
+        throw new Error('Dados insuficientes no extrato')
       }
 
       return {
@@ -138,10 +131,7 @@ export class PDFParserService {
         futureInstallments,
       }
     } catch (error: any) {
-      if (
-        error.message ===
-        'Dados insuficientes no extrato: cartao, limite ou transacoes nao encontrados'
-      ) {
+      if (error.message === 'Dados insuficientes no extrato') {
         throw error
       }
       throw new Error(`Erro ao processar PDF: ${error.message || 'Erro desconhecido'}`)

@@ -1,5 +1,7 @@
 import { PDFParserService } from './pdf-parser'
 
+export type TransactionType = 'payment' | 'purchase' | 'transfer' | 'unknown'
+
 export interface ParsedInvoiceData {
   cardInfo?: {
     cardNumber?: string
@@ -26,45 +28,90 @@ export interface ParsedInvoiceData {
     establishment?: string
     amount: number
     installment?: string
+    transactionType?: TransactionType
+    detectedCategory?: string
   }>
 }
 
 export class UniversalParserService {
+  classifyTransaction(description: string, amount: number): TransactionType {
+    try {
+      const lowerDesc = description.toLowerCase()
+      if (/(pagamento|pag|payment|boleto|fatura|faturas|cartao de credito)/.test(lowerDesc)) {
+        return 'payment'
+      }
+      if (/(compra|purchase|saque|withdrawal)/.test(lowerDesc)) {
+        return 'purchase'
+      }
+      if (/(transferencia|transfer|pix)/.test(lowerDesc)) {
+        return 'transfer'
+      }
+      return 'unknown'
+    } catch (error) {
+      console.error('Erro ao classificar transação:', error)
+      return 'unknown'
+    }
+  }
+
   parseText(text: string): {
     bank: string | null
     agency: string | null
     accountNumber: string | null
   } {
-    const bankMatch = text.match(/banco:\s*([a-z0-9\s]+)/im)
-    const agencyMatch = text.match(/ag[eê]ncia:\s*(\d+)/im)
-    const accountMatch = text.match(/conta:\s*(\d+)/im)
+    try {
+      const bankMatch = text.match(/banco:\s*([a-z0-9\s]+)/im)
+      const agencyMatch = text.match(/ag[eê]ncia:\s*(\d+)/im)
+      const accountMatch = text.match(/conta:\s*(\d+)/im)
 
-    let bank = bankMatch ? bankMatch[1].trim() : null
-    if (!bank) {
-      const knownBanks = ['itau', 'bradesco', 'santander', 'c6', 'nubank', 'caixa', 'inter']
-      for (const b of knownBanks) {
-        if (text.toLowerCase().includes(b)) {
-          bank = b
-          break
+      let bank = bankMatch ? bankMatch[1].trim() : null
+      if (!bank) {
+        const knownBanks = ['itau', 'bradesco', 'santander', 'c6', 'nubank', 'caixa', 'inter']
+        for (const b of knownBanks) {
+          if (text.toLowerCase().includes(b)) {
+            bank = b
+            break
+          }
         }
       }
-    }
 
-    return {
-      bank: bank || null,
-      agency: agencyMatch ? agencyMatch[1] : null,
-      accountNumber: accountMatch ? accountMatch[1] : null,
+      return {
+        bank: bank || null,
+        agency: agencyMatch ? agencyMatch[1] : null,
+        accountNumber: accountMatch ? accountMatch[1] : null,
+      }
+    } catch (error) {
+      console.error('Erro ao fazer parse do texto:', error)
+      return { bank: null, agency: null, accountNumber: null }
     }
   }
 
   async parseFile(file: File): Promise<ParsedInvoiceData> {
-    if (file.name.toLowerCase().endsWith('.pdf')) {
-      try {
+    try {
+      if (file.name.toLowerCase().endsWith('.pdf')) {
         const pdfParser = new PDFParserService()
         const data = await pdfParser.parseFile(file)
 
         const textToParse = (data as any).rawText || ''
         const bankInfo = this.parseText(textToParse)
+
+        const enhancedTransactions = (data.transactions || []).map((t) => {
+          const transactionType = this.classifyTransaction(t.description || '', t.amount)
+          let detectedCategory: string | undefined = undefined
+
+          if (
+            transactionType === 'payment' &&
+            t.amount < 0 &&
+            /(cartao|fatura)/i.test(t.description || '')
+          ) {
+            detectedCategory = 'PAGAMENTO DE CARTAO'
+          }
+
+          return {
+            ...t,
+            transactionType,
+            detectedCategory,
+          }
+        })
 
         return {
           ...data,
@@ -75,40 +122,56 @@ export class UniversalParserService {
             bank: data.cardInfo?.bank || bankInfo.bank || 'Banco Desconhecido',
           },
           totalAmount: data.creditLimits?.totalLimit || 0,
+          transactions: enhancedTransactions,
         } as ParsedInvoiceData
-      } catch (e: unknown) {
-        throw new Error(e instanceof Error ? e.message : 'Erro ao processar arquivo')
       }
-    }
 
-    if (file.type.startsWith('image/')) {
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          resolve({
-            cardInfo: {
-              cardNumber: '1234',
-              holderName: 'Cliente Silva',
-              bank: 'Banco Digital',
-            },
-            bankInfo: {
-              bank: 'Banco Digital',
-              agency: '0001',
-              accountNumber: '123456-7',
-            },
-            totalAmount: 2540.5,
-            creditLimits: { totalLimit: 5000, availableLimit: 2459.5 },
-            statementPeriod: { startDate: '2023-10-01', endDate: '2023-10-31' },
-            transactions: [
+      if (file.type.startsWith('image/')) {
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            const mockTransactions = [
               { date: '2023-10-05', description: 'Supermercado Extra', amount: -350.0 },
               { date: '2023-10-10', description: 'Restaurante Lanche', amount: -120.0 },
               { date: '2023-10-15', description: 'Posto de Gasolina Combustivel', amount: -200.0 },
               { date: '2023-10-20', description: 'Salario Mensal', amount: 5000.0 },
-            ],
-          })
-        }, 2000)
-      })
-    }
+              { date: '2023-10-22', description: 'PAGAMENTO DE FATURA CARTAO', amount: -1500.0 },
+            ].map((t) => {
+              const transactionType = this.classifyTransaction(t.description, t.amount)
+              let detectedCategory: string | undefined = undefined
+              if (
+                transactionType === 'payment' &&
+                t.amount < 0 &&
+                /(cartao|fatura)/i.test(t.description)
+              ) {
+                detectedCategory = 'PAGAMENTO DE CARTAO'
+              }
+              return { ...t, transactionType, detectedCategory }
+            })
 
-    throw new Error('Formato de arquivo não suportado pelo parser.')
+            resolve({
+              cardInfo: {
+                cardNumber: '1234',
+                holderName: 'Cliente Silva',
+                bank: 'Banco Digital',
+              },
+              bankInfo: {
+                bank: 'Banco Digital',
+                agency: '0001',
+                accountNumber: '123456-7',
+              },
+              totalAmount: 2540.5,
+              creditLimits: { totalLimit: 5000, availableLimit: 2459.5 },
+              statementPeriod: { startDate: '2023-10-01', endDate: '2023-10-31' },
+              transactions: mockTransactions,
+            })
+          }, 2000)
+        })
+      }
+
+      throw new Error('Formato de arquivo não suportado pelo parser.')
+    } catch (e: unknown) {
+      console.error('Erro geral ao processar arquivo:', e)
+      throw new Error(e instanceof Error ? e.message : 'Erro ao processar arquivo')
+    }
   }
 }

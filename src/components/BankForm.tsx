@@ -79,11 +79,16 @@ export function BankForm({ initialData, onSuccess, onCancel }: BankFormProps) {
           name="bank_name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nome do Banco</FormLabel>
+              <FormLabel className="text-sm">Nome do Banco</FormLabel>
               <FormControl>
-                <Input placeholder="Ex: Banco do Brasil" aria-label="Nome do Banco" {...field} />
+                <Input
+                  className="h-11 focus-visible:ring-primary"
+                  placeholder="Ex: Banco do Brasil"
+                  aria-label="Nome do Banco"
+                  {...field}
+                />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-xs text-destructive" />
             </FormItem>
           )}
         />
@@ -92,11 +97,16 @@ export function BankForm({ initialData, onSuccess, onCancel }: BankFormProps) {
           name="agency"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Agência</FormLabel>
+              <FormLabel className="text-sm">Agência</FormLabel>
               <FormControl>
-                <Input placeholder="Apenas números" aria-label="Agência" {...field} />
+                <Input
+                  className="h-11 focus-visible:ring-primary"
+                  placeholder="Apenas números"
+                  aria-label="Agência"
+                  {...field}
+                />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-xs text-destructive" />
             </FormItem>
           )}
         />
@@ -105,19 +115,28 @@ export function BankForm({ initialData, onSuccess, onCancel }: BankFormProps) {
           name="account_number"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Número da Conta</FormLabel>
+              <FormLabel className="text-sm">Número da Conta</FormLabel>
               <FormControl>
-                <Input placeholder="Apenas números" aria-label="Número da Conta" {...field} />
+                <Input
+                  className="h-11 focus-visible:ring-primary"
+                  placeholder="Apenas números"
+                  aria-label="Número da Conta"
+                  {...field}
+                />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-xs text-destructive" />
             </FormItem>
           )}
         />
         <div className="flex justify-end space-x-2 pt-4">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
+          <Button type="button" variant="secondary" onClick={onCancel} disabled={isLoading}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={isLoading || !form.formState.isValid}>
+          <Button
+            type="submit"
+            className="bg-green-600 hover:bg-green-700 text-white transition-colors"
+            disabled={isLoading || !form.formState.isValid}
+          >
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Salvar
           </Button>

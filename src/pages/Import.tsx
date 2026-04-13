@@ -7,7 +7,7 @@ import { ToastAction } from '@/components/ui/toast'
 import { parseOFXFile } from '@/services/ofx-parser'
 import { deduplicateTransactions } from '@/services/deduplication'
 import { create as createTransaction, getAll as getAllTransactions } from '@/services/transactions'
-import { parsePDFFile } from '@/services/pdf-parser'
+import { PDFParserService } from '@/services/pdf-parser'
 import { deduplicatePDFTransactions } from '@/services/deduplication-pdf'
 import { mapEstablishmentToCategory } from '@/services/category-mapper'
 import { getAll as getCards, update as updateCard } from '@/services/cards'
@@ -117,10 +117,11 @@ export default function Import() {
     setIsLoadingPdf(true)
 
     try {
-      const parsedData = await parsePDFFile(file)
+      const parserService = new PDFParserService()
+      const parsedData = await parserService.parseFile(file)
       const cards = await getCards()
 
-      const matchedCard = cards.find((c) => c.last4 === parsedData.cardInfo.last4)
+      const matchedCard = cards.find((c) => c.last4 === parsedData.cardInfo.cardNumber)
 
       if (!matchedCard) {
         toast({
@@ -133,16 +134,24 @@ export default function Import() {
       }
 
       await updateCard(matchedCard.id, {
-        limit: parsedData.limits.total ?? matchedCard.limit,
-        availableLimit: parsedData.limits.available,
-        usedLimit: parsedData.limits.used,
-        dueDate: parsedData.statementPeriod.dueDate ?? matchedCard.dueDate,
-        nextClosingDate: parsedData.statementPeriod.nextClosingDate,
+        limit: parsedData.creditLimits.totalLimit || matchedCard.limit,
+        availableLimit: parsedData.creditLimits.availableLimit,
+        usedLimit: parsedData.creditLimits.totalLimit - parsedData.creditLimits.availableLimit,
+        dueDate: parsedData.statementPeriod.endDate || matchedCard.dueDate,
+        nextClosingDate: parsedData.statementPeriod.startDate,
       })
 
       const existingTransactions = await getAllTransactions()
+
+      const mappedTransactions = parsedData.transactions.map((t) => ({
+        date: t.date,
+        establishment: t.description,
+        amount: t.amount,
+        installment: '',
+      }))
+
       const { newTransactions, duplicateCount } = deduplicatePDFTransactions(
-        parsedData.transactions,
+        mappedTransactions,
         existingTransactions,
       )
 

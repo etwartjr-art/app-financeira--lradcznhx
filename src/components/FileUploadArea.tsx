@@ -37,17 +37,40 @@ export function FileUploadArea({ onSuccess }: FileUploadAreaProps) {
       return
     }
 
+    if (!currentUser?.id) {
+      setState('ERROR')
+      setErrorMsg('Usuário não autenticado.')
+      return
+    }
+
     setState('LOADING')
-    setCurrentFile(file)
 
     try {
       const parser = new UniversalParserService()
       const data = await parser.parseFile(file)
-      setParsedData(data)
-      setState('SUCCESS')
+
+      const transactionService = new TransactionService()
+      await transactionService.createTransactionsFromParsedStatement(data, currentUser.id)
+
+      toast({
+        title: 'Sucesso',
+        description: 'Transações importadas com sucesso! Categorias atribuídas automaticamente.',
+      })
+
+      if (onSuccess) {
+        onSuccess(data, file)
+      }
+
+      navigate('/transactions')
     } catch (err: unknown) {
       setState('ERROR')
-      setErrorMsg(err instanceof Error ? err.message : 'Ocorreu um erro ao processar o arquivo.')
+      const msg = err instanceof Error ? err.message : 'Erro ao processar arquivo'
+      setErrorMsg(msg)
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: msg,
+      })
     }
   }
 
@@ -79,7 +102,6 @@ export function FileUploadArea({ onSuccess }: FileUploadAreaProps) {
           : '',
         state === 'LOADING' ? 'border-slate-700 bg-[#161925] opacity-80 pointer-events-none' : '',
         state === 'ERROR' ? 'border-red-500/50 bg-red-500/5' : '',
-        state === 'SUCCESS' ? 'border-emerald-500/50 bg-emerald-500/5' : '',
       )}
       onDragOver={(e) => {
         e.preventDefault()
@@ -140,50 +162,6 @@ export function FileUploadArea({ onSuccess }: FileUploadAreaProps) {
             aria-label="Tentar novamente"
           >
             Tentar novamente
-          </Button>
-        </div>
-      )}
-
-      {state === 'SUCCESS' && parsedData && (
-        <div className="flex flex-col items-center animate-fade-in w-full max-w-sm">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 flex items-center justify-center mb-6 shadow-sm">
-            <CheckCircle2 className="w-8 h-8 text-emerald-500" aria-hidden="true" />
-          </div>
-          <h3 className="text-xl font-semibold text-white mb-2">Arquivo processado com sucesso!</h3>
-          <p className="text-emerald-400/80 text-sm mb-6">Dados extraidos e validados</p>
-
-          <div className="w-full bg-[#0b0e14]/50 rounded-xl p-4 mb-8 text-left border border-emerald-500/20">
-            <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-sm">
-              <div className="text-slate-400">Cartão:</div>
-              <div className="text-white font-medium text-right">
-                **** {parsedData.cardInfo?.cardNumber || '----'}
-              </div>
-              <div className="text-slate-400">Titular:</div>
-              <div
-                className="text-white font-medium text-right truncate"
-                title={parsedData.cardInfo?.holderName}
-              >
-                {parsedData.cardInfo?.holderName || '---'}
-              </div>
-              <div className="text-slate-400">Banco:</div>
-              <div className="text-white font-medium text-right">
-                {parsedData.cardInfo?.bank || '---'}
-              </div>
-              <div className="text-slate-400">Total:</div>
-              <div className="text-white font-medium text-right">
-                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                  parsedData.totalAmount || 0,
-                )}
-              </div>
-            </div>
-          </div>
-
-          <Button
-            className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-8 h-12 font-medium w-full"
-            onClick={() => onSuccess(parsedData, currentFile!)}
-            aria-label="Continuar importação"
-          >
-            Continuar
           </Button>
         </div>
       )}

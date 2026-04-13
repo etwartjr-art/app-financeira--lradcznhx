@@ -71,8 +71,7 @@ export class PDFParserService {
         fullText += pageText + '\n'
       }
 
-      const cardInfoMatch =
-        fullText.match(/cartao.*?(\d{4})$/im) || fullText.match(/cartao.*?(\d{4})$/i)
+      const cardInfoMatch = fullText.match(/cartao.*?(\d{4})$/i)
       const holderMatch = fullText.match(/titular:\s*([\w\s]+)/i)
       const bankMatch = fullText.match(/banco:\s*([\w\s]+)/i)
       const flagMatch = fullText.match(/bandeira:\s*([\w\s]+)/i)
@@ -134,7 +133,7 @@ export class PDFParserService {
       if (error.message === 'Dados insuficientes no extrato') {
         throw error
       }
-      throw new Error(`Erro ao processar PDF: ${error.message || 'Erro desconhecido'}`)
+      throw new Error(`Erro ao processar PDF: ${error.message}`)
     }
   }
 }

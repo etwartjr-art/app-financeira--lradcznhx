@@ -10,6 +10,7 @@ import Index from '@/pages/Index'
 import Dashboard from '@/pages/Dashboard'
 import Cards from '@/pages/Cards'
 import Transactions from '@/pages/Transactions'
+import TransactionDetail from '@/pages/TransactionDetail'
 import Categories from '@/pages/Categories'
 import Import from '@/pages/Import'
 import Users from '@/pages/Users'
@@ -103,6 +104,7 @@ function AppContent() {
           <Route element={<ProtectedLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/transactions" element={<Transactions />} />
+            <Route path="/transactions/:id" element={<TransactionDetail />} />
             <Route path="/cards" element={<Cards />} />
             <Route path="/annual-report" element={<AnnualReport />} />
             <Route path="/categories" element={<Categories />} />

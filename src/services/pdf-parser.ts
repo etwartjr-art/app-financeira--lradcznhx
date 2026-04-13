@@ -1,4 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist'
+import Tesseract from 'tesseract.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
 
@@ -50,6 +51,67 @@ export class PDFParserService {
     return dateStr
   }
 
+  private parseExtractedText(fullText: string): ParsedStatement {
+    const cardInfoMatch = fullText.match(/cartao.*?(\d{4})$/i)
+    const holderMatch = fullText.match(/titular:\s*([\w\s]+)/i)
+    const bankMatch = fullText.match(/banco:\s*([\w\s]+)/i)
+    const flagMatch = fullText.match(/bandeira:\s*([\w\s]+)/i)
+
+    const periodMatch = fullText.match(
+      /periodo:\s*(\d{2}\/\d{2}\/\d{4})\s*a\s*(\d{2}\/\d{2}\/\d{4})/i,
+    )
+    const totalLimitMatch = fullText.match(/limite total:\s*R\$\s*([\d.,]+)/i)
+    const availableLimitMatch = fullText.match(/limite disponivel:\s*R\$\s*([\d.,]+)/i)
+
+    const transactions: ParsedStatement['transactions'] = []
+    const transRegex = /(\d{2}\/\d{2}\/\d{4})\s+([^\n]+?)\s+R\$\s*([\d.,]+)/g
+    let transMatch
+    while ((transMatch = transRegex.exec(fullText)) !== null) {
+      transactions.push({
+        date: this.parseDate(transMatch[1]),
+        description: transMatch[2].trim(),
+        amount: this.parseAmount(transMatch[3]),
+      })
+    }
+
+    const futureInstallments: ParsedStatement['futureInstallments'] = []
+    const instRegex = /parcela futura:\s*(\d{2}\/\d{2}\/\d{4})\s+([^\n]+?)\s+R\$\s*([\d.,]+)/g
+    let instMatch
+    while ((instMatch = instRegex.exec(fullText)) !== null) {
+      futureInstallments.push({
+        date: this.parseDate(instMatch[1]),
+        description: instMatch[2].trim(),
+        amount: this.parseAmount(instMatch[3]),
+      })
+    }
+
+    const cardNumber = cardInfoMatch ? cardInfoMatch[1] : ''
+    const totalLimit = totalLimitMatch ? this.parseAmount(totalLimitMatch[1]) : 0
+
+    if (!cardNumber && totalLimit === 0 && transactions.length === 0) {
+      throw new Error('Dados insuficientes no extrato')
+    }
+
+    return {
+      cardInfo: {
+        cardNumber,
+        holderName: holderMatch ? holderMatch[1].trim() : '',
+        bank: bankMatch ? bankMatch[1].trim() : '',
+        flag: flagMatch ? flagMatch[1].trim() : '',
+      },
+      statementPeriod: {
+        startDate: periodMatch ? this.parseDate(periodMatch[1]) : '',
+        endDate: periodMatch ? this.parseDate(periodMatch[2]) : '',
+      },
+      creditLimits: {
+        totalLimit,
+        availableLimit: availableLimitMatch ? this.parseAmount(availableLimitMatch[1]) : 0,
+      },
+      transactions,
+      futureInstallments,
+    }
+  }
+
   public async parseFile(file: File): Promise<ParsedStatement> {
     try {
       if (!(file instanceof File)) {
@@ -71,69 +133,45 @@ export class PDFParserService {
         fullText += pageText + '\n'
       }
 
-      const cardInfoMatch = fullText.match(/cartao.*?(\d{4})$/i)
-      const holderMatch = fullText.match(/titular:\s*([\w\s]+)/i)
-      const bankMatch = fullText.match(/banco:\s*([\w\s]+)/i)
-      const flagMatch = fullText.match(/bandeira:\s*([\w\s]+)/i)
-
-      const periodMatch = fullText.match(
-        /periodo:\s*(\d{2}\/\d{2}\/\d{4})\s*a\s*(\d{2}\/\d{2}\/\d{4})/i,
-      )
-      const totalLimitMatch = fullText.match(/limite total:\s*R\$\s*([\d.,]+)/i)
-      const availableLimitMatch = fullText.match(/limite disponivel:\s*R\$\s*([\d.,]+)/i)
-
-      const transactions: ParsedStatement['transactions'] = []
-      const transRegex = /(\d{2}\/\d{2}\/\d{4})\s+([^\n]+?)\s+R\$\s*([\d.,]+)/g
-      let transMatch
-      while ((transMatch = transRegex.exec(fullText)) !== null) {
-        transactions.push({
-          date: this.parseDate(transMatch[1]),
-          description: transMatch[2].trim(),
-          amount: this.parseAmount(transMatch[3]),
-        })
-      }
-
-      const futureInstallments: ParsedStatement['futureInstallments'] = []
-      const instRegex = /parcela futura:\s*(\d{2}\/\d{2}\/\d{4})\s+([^\n]+?)\s+R\$\s*([\d.,]+)/g
-      let instMatch
-      while ((instMatch = instRegex.exec(fullText)) !== null) {
-        futureInstallments.push({
-          date: this.parseDate(instMatch[1]),
-          description: instMatch[2].trim(),
-          amount: this.parseAmount(instMatch[3]),
-        })
-      }
-
-      const cardNumber = cardInfoMatch ? cardInfoMatch[1] : ''
-      const totalLimit = totalLimitMatch ? this.parseAmount(totalLimitMatch[1]) : 0
-
-      if (!cardNumber && totalLimit === 0 && transactions.length === 0) {
-        throw new Error('Dados insuficientes no extrato')
-      }
-
-      return {
-        cardInfo: {
-          cardNumber,
-          holderName: holderMatch ? holderMatch[1].trim() : '',
-          bank: bankMatch ? bankMatch[1].trim() : '',
-          flag: flagMatch ? flagMatch[1].trim() : '',
-        },
-        statementPeriod: {
-          startDate: periodMatch ? this.parseDate(periodMatch[1]) : '',
-          endDate: periodMatch ? this.parseDate(periodMatch[2]) : '',
-        },
-        creditLimits: {
-          totalLimit,
-          availableLimit: availableLimitMatch ? this.parseAmount(availableLimitMatch[1]) : 0,
-        },
-        transactions,
-        futureInstallments,
-      }
+      return this.parseExtractedText(fullText)
     } catch (error: any) {
       if (error.message === 'Dados insuficientes no extrato') {
         throw error
       }
       throw new Error(`Erro ao processar PDF: ${error.message}`)
+    }
+  }
+
+  public async parseImage(file: File): Promise<ParsedStatement> {
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+
+      const result = await Tesseract.recognize(dataUrl, 'por')
+      return this.parseExtractedText(result.data.text)
+    } catch (error: any) {
+      if (error.message === 'Dados insuficientes no extrato') {
+        throw error
+      }
+      throw new Error(`Erro ao processar imagem: ${error.message}`)
+    }
+  }
+
+  public async parseFileOrImage(file: File): Promise<ParsedStatement> {
+    if (file.type === 'application/pdf') {
+      return this.parseFile(file)
+    } else if (
+      file.type === 'image/jpeg' ||
+      file.type === 'image/png' ||
+      file.type === 'image/webp'
+    ) {
+      return this.parseImage(file)
+    } else {
+      throw new Error('Tipo de arquivo nao suportado. Use PDF ou imagem')
     }
   }
 }

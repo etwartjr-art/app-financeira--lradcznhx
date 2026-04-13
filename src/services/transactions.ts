@@ -106,6 +106,12 @@ export const remove = async (id: string) => {
   })
 }
 
+export const clearAllTransactions = async () => {
+  return requestManager.run(async () => {
+    return pb.send('/backend/v1/transactions/clear', { method: 'DELETE' })
+  })
+}
+
 export const getTransactionsByUser = async (userId: string, month: number, year: number) => {
   return requestManager.run(async () => {
     const monthStr = String(month + 1).padStart(2, '0')

@@ -26,10 +26,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Search, Edit2, Trash2, Receipt } from 'lucide-react'
+import { Search, Edit2, Trash2, Receipt, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from '@/hooks/use-toast'
 import { MonthSelector } from '@/components/MonthSelector'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { clearAllTransactions } from '@/services/transactions'
 
 import { TableSkeleton, ErrorState, EmptyState } from '@/components/StateFeedback'
 
@@ -50,6 +61,8 @@ export default function Transactions() {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all')
+  const [isClearDataOpen, setIsClearDataOpen] = useState(false)
+  const [isClearing, setIsClearing] = useState(false)
 
   const safeCategories = categories || []
   const [newTx, setNewTx] = useState<Partial<Transaction>>({
@@ -120,6 +133,20 @@ export default function Transactions() {
     }
   }
 
+  const handleClearData = async () => {
+    try {
+      setIsClearing(true)
+      await clearAllTransactions()
+      toast({ title: 'Todas as transações foram removidas com sucesso!' })
+      setIsClearDataOpen(false)
+      retry()
+    } catch (err) {
+      toast({ title: 'Erro ao limpar dados. Por favor, tente novamente.', variant: 'destructive' })
+    } finally {
+      setIsClearing(false)
+    }
+  }
+
   if (isLoading && !transactions.length) return <TableSkeleton />
   if (error) return <ErrorState message={error} onRetry={retry} />
 
@@ -156,6 +183,13 @@ export default function Transactions() {
         </div>
         <div className="flex items-center gap-3">
           <MonthSelector />
+          <Button
+            variant="destructive"
+            className="rounded-lg px-4"
+            onClick={() => setIsClearDataOpen(true)}
+          >
+            Limpar Dados
+          </Button>
           <Button
             className="bg-[#0f766e] hover:bg-[#0f766e]/90 text-white rounded-lg px-6"
             onClick={() => setIsAddOpen(true)}
@@ -413,6 +447,40 @@ export default function Transactions() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isClearDataOpen} onOpenChange={setIsClearDataOpen}>
+        <AlertDialogContent className="bg-[#161925] border-slate-800 text-slate-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              Tem certeza que deseja apagar todas as suas transações? Esta ação é permanente e não
+              pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-transparent border-slate-700 text-white hover:bg-slate-800 hover:text-white">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleClearData()
+              }}
+              className="bg-red-600 text-white hover:bg-red-700"
+              disabled={isClearing}
+            >
+              {isClearing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Limpando...
+                </>
+              ) : (
+                'Confirmar'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

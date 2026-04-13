@@ -147,9 +147,6 @@ export default function Transactions() {
     }
   }
 
-  if (isLoading && !transactions.length) return <TableSkeleton />
-  if (error) return <ErrorState message={error} onRetry={retry} />
-
   const openEdit = (t: Transaction) => {
     setEditingTx(t)
     setNewTx({ ...t, date: t.date?.split('T')[0] || '' })
@@ -175,6 +172,9 @@ export default function Transactions() {
     const d = new Date(dateStr)
     return isNaN(d.getTime()) ? '-' : format(d, 'dd/MM/yyyy')
   }
+
+  if (isLoading && !transactions.length) return <TableSkeleton />
+  if (error) return <ErrorState message={error} onRetry={retry} />
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-8 animate-fade-in max-w-7xl mx-auto">

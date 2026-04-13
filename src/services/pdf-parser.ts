@@ -64,7 +64,7 @@ export class PDFParserService {
 
       // Local Document Processing Engine
       // @ts-expect-error dynamic import without types
-      const pdfjsLib = await import('/pdf.min.mjs')
+      const pdfjsLib = await import(/* @vite-ignore */ '/pdf.min.mjs')
       pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
 
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise

@@ -1,26 +1,24 @@
 import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, FileCode } from 'lucide-react'
+import { Upload, CheckCircle2, AlertCircle, Loader2, FileCode } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { ToastAction } from '@/components/ui/toast'
 import { parseOFXFile } from '@/services/ofx-parser'
 import { deduplicateTransactions } from '@/services/deduplication'
 import { create as createTransaction, getAll as getAllTransactions } from '@/services/transactions'
-import { PDFParserService } from '@/services/pdf-parser'
 import { deduplicatePDFTransactions } from '@/services/deduplication-pdf'
 import { mapEstablishmentToCategory } from '@/services/category-mapper'
 import { getAll as getCards, update as updateCard } from '@/services/cards'
+import { FileUploadArea } from '@/components/FileUploadArea'
+import { ParsedInvoiceData } from '@/services/universal-parser'
 
 export default function Import() {
+  const navigate = useNavigate()
   const ofxInputRef = useRef<HTMLInputElement>(null)
-  const pdfInputRef = useRef<HTMLInputElement>(null)
-
   const [isDraggingOfx, setIsDraggingOfx] = useState(false)
   const [isLoadingOfx, setIsLoadingOfx] = useState(false)
-
-  const [isDraggingPdf, setIsDraggingPdf] = useState(false)
-  const [isLoadingPdf, setIsLoadingPdf] = useState(false)
 
   const processOfxFile = async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.ofx')) {
@@ -104,50 +102,37 @@ export default function Import() {
     }
   }
 
-  const processPdfFile = async (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
-      toast({
-        title: 'Formato inválido',
-        description: 'Por favor, selecione apenas arquivos .pdf',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    setIsLoadingPdf(true)
-
+  const handleInvoiceSuccess = async (parsedData: ParsedInvoiceData) => {
     try {
-      const parserService = new PDFParserService()
-      const parsedData = await parserService.parseFile(file)
       const cards = await getCards()
-
-      const matchedCard = cards.find((c) => c.last4 === parsedData.cardInfo.cardNumber)
+      const matchedCard = cards.find((c) => c.last4 === parsedData.cardInfo?.cardNumber)
 
       if (!matchedCard) {
         toast({
-          title: 'Cartao nao encontrado. Crie o cartao primeiro.',
+          title: 'Cartão não encontrado.',
+          description: `Crie um cartão com os 4 últimos dígitos ${parsedData.cardInfo?.cardNumber || 'XXXX'} primeiro.`,
           variant: 'destructive',
         })
-        setIsLoadingPdf(false)
-        if (pdfInputRef.current) pdfInputRef.current.value = ''
         return
       }
 
       await updateCard(matchedCard.id, {
-        limit: parsedData.creditLimits.totalLimit || matchedCard.limit,
-        availableLimit: parsedData.creditLimits.availableLimit,
-        usedLimit: parsedData.creditLimits.totalLimit - parsedData.creditLimits.availableLimit,
-        dueDate: parsedData.statementPeriod.endDate || matchedCard.dueDate,
-        nextClosingDate: parsedData.statementPeriod.startDate,
+        limit: parsedData.creditLimits?.totalLimit || matchedCard.limit,
+        availableLimit: parsedData.creditLimits?.availableLimit,
+        usedLimit: parsedData.creditLimits?.totalLimit
+          ? parsedData.creditLimits.totalLimit - (parsedData.creditLimits.availableLimit || 0)
+          : undefined,
+        dueDate: parsedData.statementPeriod?.endDate || matchedCard.dueDate,
+        nextClosingDate: parsedData.statementPeriod?.startDate,
       })
 
       const existingTransactions = await getAllTransactions()
 
-      const mappedTransactions = parsedData.transactions.map((t) => ({
+      const mappedTransactions = (parsedData.transactions || []).map((t) => ({
         date: t.date,
-        establishment: t.description,
+        establishment: t.description || t.establishment || '',
         amount: t.amount,
-        installment: '',
+        installment: t.installment || '',
       }))
 
       const { newTransactions, duplicateCount } = deduplicatePDFTransactions(
@@ -168,55 +153,46 @@ export default function Import() {
           date: t.date + ' 12:00:00.000Z',
           origin: matchedCard.name,
           category: category,
-          tags: 'importado-pdf',
+          tags: 'importado-fatura',
           cardId: matchedCard.id,
         })
         importedCount++
       }
 
-      if (importedCount > 0) {
-        toast({
-          title: `${importedCount} transacoes importadas com sucesso`,
-          className: 'bg-emerald-600 text-white border-none',
-        })
-      }
+      toast({
+        title: 'Fatura importada com sucesso!',
+        className: 'bg-emerald-600 text-white border-none',
+      })
 
       if (duplicateCount > 0) {
         toast({
-          title: `${duplicateCount} transacoes duplicadas ignoradas`,
+          title: `${duplicateCount} transações duplicadas ignoradas`,
         })
       }
+
+      navigate('/dashboard')
     } catch (error: any) {
-      console.log(error)
       toast({
-        title: 'Erro ao ler arquivo PDF',
-        description: error.message || 'Ocorreu um erro inesperado.',
+        title: 'Erro ao importar fatura',
+        description: error.message || 'Ocorreu um erro inesperado ao salvar os dados.',
         variant: 'destructive',
-        action: (
-          <ToastAction altText="Tentar novamente" onClick={() => pdfInputRef.current?.click()}>
-            Tentar novamente
-          </ToastAction>
-        ),
       })
-    } finally {
-      setIsLoadingPdf(false)
-      if (pdfInputRef.current) pdfInputRef.current.value = ''
     }
   }
 
   return (
     <div className="flex flex-col gap-8 p-4 md:p-8 animate-fade-in max-w-6xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-white mb-2">Conciliação</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-white mb-2">Importar Fatura</h1>
         <p className="text-slate-400">
-          Importe arquivos OFX ou faturas em PDF para sincronizar transações
+          Selecione um PDF ou imagem da sua fatura de cartao de credito
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         {/* OFX Zone */}
         <div
-          className={`w-full h-80 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-6 transition-all bg-[#161925] ${isDraggingOfx ? 'border-[#0f766e] bg-[#0f766e]/5' : 'border-slate-700 hover:border-slate-500'} ${isLoadingOfx ? 'opacity-70 pointer-events-none' : ''}`}
+          className={`w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-6 transition-all min-h-[320px] bg-[#161925] ${isDraggingOfx ? 'border-[#0f766e] bg-[#0f766e]/5' : 'border-slate-700 hover:border-slate-500'} ${isLoadingOfx ? 'opacity-70 pointer-events-none' : ''}`}
           onDragOver={(e) => {
             e.preventDefault()
             setIsDraggingOfx(true)
@@ -266,59 +242,8 @@ export default function Import() {
           )}
         </div>
 
-        {/* PDF Zone */}
-        <div
-          className={`w-full h-80 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-6 transition-all bg-[#161925] ${isDraggingPdf ? 'border-[#8b5cf6] bg-[#8b5cf6]/5' : 'border-slate-700 hover:border-slate-500'} ${isLoadingPdf ? 'opacity-70 pointer-events-none' : ''}`}
-          onDragOver={(e) => {
-            e.preventDefault()
-            setIsDraggingPdf(true)
-          }}
-          onDragLeave={() => setIsDraggingPdf(false)}
-          onDrop={(e) => {
-            e.preventDefault()
-            setIsDraggingPdf(false)
-            const file = e.dataTransfer.files?.[0]
-            if (file) processPdfFile(file)
-          }}
-        >
-          <div className="w-16 h-16 rounded-2xl bg-[#8b5cf6]/10 flex items-center justify-center mb-6 shadow-sm">
-            {isLoadingPdf ? (
-              <Loader2 className="w-8 h-8 text-[#8b5cf6] animate-spin" />
-            ) : (
-              <FileText className="w-8 h-8 text-[#8b5cf6]" />
-            )}
-          </div>
-
-          <h3 className="text-xl font-semibold text-white mb-2 text-center">
-            {isLoadingPdf ? 'Importando fatura...' : 'Arraste arquivo OFX ou PDF aqui'}
-          </h3>
-          {!isLoadingPdf && (
-            <p className="text-slate-400 text-sm mb-8 text-center px-4">
-              Faturas de cartão de crédito (.pdf)
-            </p>
-          )}
-
-          <input
-            type="file"
-            accept=".pdf,.ofx"
-            className="hidden"
-            ref={pdfInputRef}
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) processPdfFile(file)
-            }}
-            disabled={isLoadingPdf}
-          />
-
-          {!isLoadingPdf && (
-            <Button
-              className="bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 text-white rounded-lg px-8 h-12 font-medium"
-              onClick={() => pdfInputRef.current?.click()}
-            >
-              Selecionar Fatura
-            </Button>
-          )}
-        </div>
+        {/* Universal Invoice Upload Area */}
+        <FileUploadArea onSuccess={handleInvoiceSuccess} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -330,7 +255,7 @@ export default function Import() {
             <div>
               <h4 className="font-semibold text-white mb-2">Multi-formato</h4>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Suporte para arquivos OFX e faturas em PDF
+                Suporte para arquivos OFX, PDFs e Imagens
               </p>
             </div>
           </CardContent>
@@ -344,7 +269,7 @@ export default function Import() {
             <div>
               <h4 className="font-semibold text-white mb-2">Inteligente</h4>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Categorização automática e extração de dados
+                Extração automática via OCR e categorização
               </p>
             </div>
           </CardContent>

@@ -4,10 +4,12 @@ import * as pdfjsLib from 'pdfjs-dist'
 import Tesseract from 'tesseract.js'
 import { PDFParserService } from './pdf-parser'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.js',
-  import.meta.url,
-).href
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.js',
+    import.meta.url,
+  ).href
+}
 
 export type TransactionType = 'payment' | 'purchase' | 'transfer' | 'unknown'
 
@@ -108,9 +110,17 @@ export class UniversalParserService {
     try {
       if (file.name.toLowerCase().endsWith('.pdf')) {
         const pdfParser = new PDFParserService()
-        const data = await pdfParser.parseFile(file)
+        let data: ParsedInvoiceData & { rawText?: string }
 
-        const textToParse = (data as ParsedInvoiceData & { rawText?: string }).rawText || ''
+        try {
+          data = (await pdfParser.parseFile(file)) as ParsedInvoiceData & { rawText?: string }
+        } catch (error: unknown) {
+          throw new Error(
+            'Erro ao processar PDF: Arquivo invalido ou corrompido. Tente outro arquivo.',
+          )
+        }
+
+        const textToParse = data.rawText || ''
         const bankInfo = this.parseText(textToParse)
 
         const enhancedTransactions = (data.transactions || []).map((t) => {

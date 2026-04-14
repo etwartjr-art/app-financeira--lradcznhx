@@ -1,13 +1,13 @@
 // @ts-expect-error
 import * as pdfjsLib from 'pdfjs-dist'
 // @ts-expect-error
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.js?url'
-// @ts-expect-error
 import Tesseract from 'tesseract.js'
 import { PDFParserService } from './pdf-parser'
 
 if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
+  const version = pdfjsLib.version || '3.11.174'
+  const ext = version.startsWith('4') ? 'mjs' : 'js'
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.${ext}`
 }
 
 export type TransactionType = 'payment' | 'purchase' | 'transfer' | 'unknown'

@@ -1,14 +1,13 @@
 // @ts-expect-error
 import * as pdfjsLib from 'pdfjs-dist'
 // @ts-expect-error
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.js?url'
+// @ts-expect-error
 import Tesseract from 'tesseract.js'
 import { PDFParserService } from './pdf-parser'
 
 if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.js',
-    import.meta.url,
-  ).href
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 }
 
 export type TransactionType = 'payment' | 'purchase' | 'transfer' | 'unknown'
@@ -113,7 +112,12 @@ export class UniversalParserService {
         let data: ParsedInvoiceData & { rawText?: string }
 
         try {
-          data = (await pdfParser.parseFile(file)) as ParsedInvoiceData & { rawText?: string }
+          const arrayBuffer = await file.arrayBuffer()
+          const uint8Array = new Uint8Array(arrayBuffer)
+
+          data = (await pdfParser.parseFile(uint8Array as unknown as File)) as ParsedInvoiceData & {
+            rawText?: string
+          }
         } catch (error: unknown) {
           throw new Error(
             'Erro ao processar PDF: Arquivo invalido ou corrompido. Tente outro arquivo.',

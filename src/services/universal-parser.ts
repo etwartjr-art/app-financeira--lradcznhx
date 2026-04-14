@@ -1,4 +1,13 @@
+// @ts-expect-error
+import * as pdfjsLib from 'pdfjs-dist'
+// @ts-expect-error
+import Tesseract from 'tesseract.js'
 import { PDFParserService } from './pdf-parser'
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.js',
+  import.meta.url,
+).href
 
 export type TransactionType = 'payment' | 'purchase' | 'transfer' | 'unknown'
 
@@ -85,13 +94,23 @@ export class UniversalParserService {
     }
   }
 
+  async parseImage(file: File): Promise<string> {
+    try {
+      const result = await Tesseract.recognize(file, 'por')
+      return result.data.text
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      throw new Error(`Erro ao processar imagem: ${errorMessage}`)
+    }
+  }
+
   async parseFile(file: File): Promise<ParsedInvoiceData> {
     try {
       if (file.name.toLowerCase().endsWith('.pdf')) {
         const pdfParser = new PDFParserService()
         const data = await pdfParser.parseFile(file)
 
-        const textToParse = (data as any).rawText || ''
+        const textToParse = (data as ParsedInvoiceData & { rawText?: string }).rawText || ''
         const bankInfo = this.parseText(textToParse)
 
         const enhancedTransactions = (data.transactions || []).map((t) => {

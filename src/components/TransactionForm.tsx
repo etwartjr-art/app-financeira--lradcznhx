@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/hooks/use-auth'
+import { getBanks, Bank } from '@/services/bank-service'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -47,6 +49,7 @@ export function TransactionForm({
     type: transaction?.type || 'expense',
     category: transaction?.category || 'none',
     cardId: transaction?.cardId || 'none',
+    bankId: transaction?.bankId || 'none',
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -62,6 +65,7 @@ export function TransactionForm({
         type: transaction.type || 'expense',
         category: transaction.category || 'none',
         cardId: transaction.cardId || 'none',
+        bankId: transaction.bankId || 'none',
       })
     }
   }, [transaction])
@@ -107,6 +111,7 @@ export function TransactionForm({
       type: formData.type as 'income' | 'expense',
       category: formData.category === 'none' ? '' : formData.category,
       cardId: formData.cardId === 'none' ? '' : formData.cardId,
+      bankId: formData.bankId === 'none' ? '' : formData.bankId,
     })
   }
 
@@ -194,25 +199,48 @@ export function TransactionForm({
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label>Conta / Cartão</Label>
-          <Select
-            value={formData.cardId}
-            onValueChange={(value) => handleChange('cardId', value)}
-            disabled={isLoading}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione a conta/cartão" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Nenhum</SelectItem>
-              {cards.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Conta / Cartão de Crédito</Label>
+            <Select
+              value={formData.cardId}
+              onValueChange={(value) => handleChange('cardId', value)}
+              disabled={isLoading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o cartão" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhum</SelectItem>
+                {cards.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Banco</Label>
+            <Select
+              value={formData.bankId}
+              onValueChange={(value) => handleChange('bankId', value)}
+              disabled={isLoading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o banco" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhum</SelectItem>
+                {banks.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.bank_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 

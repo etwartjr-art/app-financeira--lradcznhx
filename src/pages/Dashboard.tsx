@@ -1,34 +1,31 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import {
   Wallet,
   TrendingUp,
   TrendingDown,
-  PiggyBank,
-  CreditCard,
-  BarChart3,
+  Building2,
   Receipt,
   ArrowUp,
   ArrowDown,
   AlertCircle,
+  Plus,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useFinance, Transaction } from '@/stores/FinanceContext'
-import { CashFlowChart, CategoryExpensesChart } from '@/components/dashboard/Charts'
 import { MonthSelector } from '@/components/MonthSelector'
 import { DashboardSkeleton, ErrorState } from '@/components/StateFeedback'
 import { useRealtime } from '@/hooks/use-realtime'
 import { useToast } from '@/hooks/use-toast'
+import { getBanks, Bank } from '@/services/bank-service'
 
 export default function Dashboard() {
   const {
     balance,
     transactions,
-    cards,
-    categories,
     currentMonth,
     isLoading: isContextLoading,
     error: contextError,
@@ -42,6 +39,9 @@ export default function Dashboard() {
   const [isTxLoading, setIsTxLoading] = useState(true)
   const [txError, setTxError] = useState<string | null>(null)
 
+  const [banks, setBanks] = useState<Bank[]>([])
+  const [isBanksLoading, setIsBanksLoading] = useState(true)
+
   const fetchMonthTransactions = useCallback(async () => {
     if (!currentUser) return
     try {
@@ -53,17 +53,34 @@ export default function Dashboard() {
       )
       setMonthTransactions(data)
     } catch (err) {
-      setTxError('Nao foi possivel carregar transacoes')
+      setTxError('Não foi possível carregar transações')
       throw err
     } finally {
       setIsTxLoading(false)
     }
   }, [currentUser, currentMonth, getTransactionsByUser])
 
+  const fetchBanks = useCallback(async () => {
+    if (!currentUser) return
+    try {
+      const data = await getBanks(currentUser.id)
+      setBanks(data)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setIsBanksLoading(false)
+    }
+  }, [currentUser])
+
   useEffect(() => {
     setIsTxLoading(true)
     fetchMonthTransactions().catch(() => {})
   }, [fetchMonthTransactions])
+
+  useEffect(() => {
+    setIsBanksLoading(true)
+    fetchBanks().catch(() => {})
+  }, [fetchBanks])
 
   useRealtime('transactions', (e) => {
     if (e.record.user_id === currentUser?.id) {
@@ -76,45 +93,13 @@ export default function Dashboard() {
     }
   })
 
-  const cashFlowData = useMemo(() => {
-    if (!currentMonth) return []
-    const daysInMonth = new Date(
-      currentMonth.getFullYear(),
-      currentMonth.getMonth() + 1,
-      0,
-    ).getDate()
-    return Array.from({ length: daysInMonth }, (_, i) => {
-      const day = i + 1
-      const datePrefix = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-      const txForDay = monthTransactions.filter((t) => t.date && t.date.startsWith(datePrefix))
-      return {
-        name: String(day),
-        Receitas: txForDay
-          .filter((t) => t.type === 'income')
-          .reduce((acc, t) => acc + (Number(t.amount) || 0), 0),
-        Despesas: txForDay
-          .filter((t) => t.type === 'expense')
-          .reduce((acc, t) => acc + (Number(t.amount) || 0), 0),
-      }
-    })
-  }, [monthTransactions, currentMonth])
+  useRealtime('banks', (e) => {
+    if (e.record.user_id === currentUser?.id) {
+      fetchBanks().catch(() => {})
+    }
+  })
 
-  const catData = useMemo(
-    () =>
-      (categories || [])
-        .map((c) => ({
-          name: c.name,
-          color: c.color,
-          value: monthTransactions
-            .filter((t) => t.type === 'expense' && t.category === c.name)
-            .reduce((acc, t) => acc + (Number(t.amount) || 0), 0),
-        }))
-        .filter((d) => d.value > 0)
-        .sort((a, b) => b.value - a.value),
-    [categories, monthTransactions],
-  )
-
-  if (isContextLoading && !transactions.length) return <DashboardSkeleton />
+  if (isContextLoading && !transactions?.length) return <DashboardSkeleton />
   if (contextError) return <ErrorState message={contextError} onRetry={contextRetry} />
 
   const receitas = monthTransactions
@@ -123,347 +108,257 @@ export default function Dashboard() {
   const despesas = monthTransactions
     .filter((t) => t.type === 'expense')
     .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
-  const economia = receitas - despesas
-
-  const gerais = monthTransactions
-    .filter((t) => t.type === 'expense' && !(cards || []).some((c) => c.name === t.origin))
-    .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
-  const despesasCartoes = monthTransactions
-    .filter((t) => t.type === 'expense' && (cards || []).some((c) => c.name === t.origin))
-    .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
-  const totalConsolidado = gerais + despesasCartoes
-  const percGerais = totalConsolidado ? (gerais / totalConsolidado) * 100 : 0
-  const percCartoes = totalConsolidado ? (despesasCartoes / totalConsolidado) * 100 : 0
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-8 animate-fade-in max-w-7xl mx-auto">
+    <main className="flex flex-col gap-6 p-4 md:p-8 animate-fade-in max-w-7xl mx-auto w-full">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight text-white">Dashboard</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-white">Início</h1>
           <p className="text-slate-400 text-sm">Visão geral das suas finanças</p>
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
           <MonthSelector />
-          <Button
-            asChild
-            variant="outline"
-            className="bg-[#161925] border-slate-800 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-400 hidden sm:flex"
-          >
-            <Link to="/annual-report">
-              <BarChart3 className="w-4 h-4 mr-2" />
-              <span>Relatório Anual</span>
-            </Link>
-          </Button>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        {[
-          {
-            title: 'Saldo Atual',
-            val: balance,
-            icon: Wallet,
-            c: 'text-emerald-500',
-            bg: 'bg-emerald-500/10',
-          },
-          {
-            title: 'Receitas',
-            val: receitas,
-            icon: TrendingUp,
-            c: 'text-emerald-500',
-            bg: 'bg-emerald-500/10',
-          },
-          {
-            title: 'Despesas',
-            val: despesas,
-            icon: TrendingDown,
-            c: 'text-red-500',
-            bg: 'bg-red-500/10',
-          },
-          {
-            title: 'Economia',
-            val: Math.max(economia, 0),
-            icon: PiggyBank,
-            c: 'text-emerald-500',
-            bg: 'bg-emerald-500/10',
-          },
-        ].map((item, i) => (
-          <Card key={i} className="bg-[#161925] border-slate-800 shadow-sm">
-            <CardContent className="p-6 flex justify-between items-start">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-slate-400">{item.title}</p>
-                <p className="text-2xl font-bold text-white">
-                  R$ {(Number(item.val) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-              <div className={`p-2 rounded-lg ${item.bg}`}>
-                <item.icon className={`w-5 h-5 ${item.c}`} />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
+      <section className="grid gap-4 md:grid-cols-3">
         <Card className="bg-[#161925] border-slate-800 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base text-white font-semibold">Fluxo de Caixa</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CashFlowChart data={cashFlowData} />
-          </CardContent>
-        </Card>
-        <Card className="bg-[#161925] border-slate-800 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base text-white font-semibold">
-              Despesas por Categoria
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CategoryExpensesChart data={catData} />
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="bg-[#161925] border-slate-800 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base text-white font-semibold">
-              Relatório Geral de Despesas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex gap-4">
-              <div className="bg-[#0b0e14] p-4 rounded-xl flex-1 border border-slate-800">
-                <p className="text-xs text-slate-400 mb-1 font-medium">Despesas Gerais</p>
-                <p className="text-xl font-bold text-red-500">
-                  R$ {(Number(gerais) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-              <div className="bg-[#0b0e14] p-4 rounded-xl flex-1 border border-slate-800">
-                <p className="text-xs text-slate-400 mb-1 font-medium flex items-center gap-1">
-                  <CreditCard className="w-3 h-3" /> <span>Cartões</span>
-                </p>
-                <p className="text-xl font-bold text-amber-500">
-                  R${' '}
-                  {(Number(despesasCartoes) || 0).toLocaleString('pt-BR', {
-                    minimumFractionDigits: 2,
-                  })}
-                </p>
-              </div>
+          <CardContent className="p-6 flex justify-between items-start">
+            <div className="space-y-2">
+              <h2 className="text-sm font-medium text-slate-400">Saldo Total</h2>
+              <p
+                className="text-3xl font-bold text-white truncate max-w-[200px]"
+                title={`R$ ${(Number(balance) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+              >
+                R$ {(Number(balance) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
             </div>
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm items-end">
-                <span className="text-slate-400 font-medium">Total Consolidado</span>
-                <span className="font-bold text-white text-lg">
-                  R${' '}
-                  {(Number(totalConsolidado) || 0).toLocaleString('pt-BR', {
-                    minimumFractionDigits: 2,
-                  })}
-                </span>
-              </div>
-              <div className="h-3 flex rounded-full overflow-hidden bg-slate-800">
-                <div style={{ width: `${percGerais}%` }} className="bg-red-500 transition-all" />
-                <div style={{ width: `${percCartoes}%` }} className="bg-amber-500 transition-all" />
-              </div>
+            <div className="p-3 rounded-xl bg-blue-500/10 flex-shrink-0">
+              <Wallet className="w-6 h-6 text-blue-500" />
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-[#161925] border-slate-800 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base text-white font-semibold flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-emerald-500" /> <span>Despesas por Cartão</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col min-h-[200px] gap-4">
-            {!(cards || []).length ? (
-              <div className="flex flex-col items-center justify-center h-full min-h-[160px] text-center space-y-3">
-                <div className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center">
-                  <CreditCard className="w-5 h-5 text-slate-400" />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-slate-300">Nenhum cartão</p>
-                  <p className="text-xs text-slate-500">Adicione um cartão para ver as despesas.</p>
-                </div>
-                <Button
-                  asChild
-                  variant="link"
-                  className="text-[#0f766e] hover:text-[#0f766e]/80 h-auto p-0"
-                >
-                  <Link to="/cards">Cadastrar cartão</Link>
-                </Button>
-              </div>
-            ) : (
-              (cards || []).map((c) => {
-                const used = monthTransactions
-                  .filter((t) => t.type === 'expense' && t.origin === c.name)
-                  .reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
-                const limitNum = Number(c.limit) || 1
-                return (
-                  <div key={c.id} className="space-y-2">
-                    <div className="flex justify-between text-sm items-end">
-                      <span className="text-slate-300 font-medium uppercase">{c.name}</span>
-                      <span className="text-white font-bold tracking-tight">
-                        R$ {(Number(used) || 0).toLocaleString('pt-BR')}
-                        <span className="text-xs font-normal text-slate-500 ml-1">
-                          / R$ {(Number(c.limit) || 0).toLocaleString('pt-BR')}
-                        </span>
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
-                      <div
-                        className="h-full bg-amber-500"
-                        style={{ width: `${Math.min((used / limitNum) * 100, 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                )
-              })
-            )}
+          <CardContent className="p-6 flex justify-between items-start">
+            <div className="space-y-2">
+              <h2 className="text-sm font-medium text-slate-400">Receitas do Mês</h2>
+              <p
+                className="text-2xl font-bold text-emerald-500 truncate max-w-[180px]"
+                title={`R$ ${(Number(receitas) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+              >
+                R$ {(Number(receitas) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="p-2 rounded-lg bg-emerald-500/10 flex-shrink-0">
+              <TrendingUp className="w-5 h-5 text-emerald-500" />
+            </div>
           </CardContent>
         </Card>
-      </div>
 
-      <Card className="bg-[#161925] border-slate-800 shadow-sm mt-2">
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-base text-white font-semibold">
-            Últimas movimentações
-          </CardTitle>
-          {monthTransactions.length > 0 && (
-            <Link
-              to="/transactions"
-              className="text-sm font-medium text-emerald-500 hover:text-emerald-400"
-            >
-              Ver todas
-            </Link>
-          )}
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {isTxLoading ? (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center py-2 border-b border-slate-800/50">
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-[200px] bg-slate-800" />
-                    <Skeleton className="h-3 w-[150px] bg-slate-800/50" />
-                  </div>
-                  <Skeleton className="h-5 w-[100px] bg-slate-800" />
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-slate-800/50">
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-[180px] bg-slate-800" />
-                    <Skeleton className="h-3 w-[120px] bg-slate-800/50" />
-                  </div>
-                  <Skeleton className="h-5 w-[80px] bg-slate-800" />
-                </div>
-                <div className="flex justify-between items-center py-2">
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-[220px] bg-slate-800" />
-                    <Skeleton className="h-3 w-[160px] bg-slate-800/50" />
-                  </div>
-                  <Skeleton className="h-5 w-[120px] bg-slate-800" />
-                </div>
-              </div>
-            ) : txError ? (
-              <div className="flex flex-col items-center justify-center py-6 text-center space-y-3">
-                <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
-                  <AlertCircle className="w-5 h-5 text-red-500" />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-slate-300">
-                    Nao foi possivel carregar transacoes
-                  </p>
-                </div>
-                <Button
-                  onClick={() => {
-                    setIsTxLoading(true)
-                    fetchMonthTransactions()
-                  }}
-                  variant="outline"
-                  className="bg-transparent border-slate-700 hover:bg-slate-800"
-                >
-                  Tentar novamente
-                </Button>
-              </div>
-            ) : monthTransactions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-6 text-center space-y-3">
-                <div className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center">
-                  <Receipt className="w-5 h-5 text-slate-400" />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-slate-300">Nenhuma transação neste mês</p>
-                </div>
-                <Button
-                  asChild
-                  variant="link"
-                  className="text-[#0f766e] hover:text-[#0f766e]/80 h-auto p-0"
-                >
-                  <Link to="/transactions">Nova transação</Link>
-                </Button>
-              </div>
-            ) : (
-              <div className="animate-fade-in space-y-4">
-                {monthTransactions.slice(0, 5).map((t) => {
-                  const dateObj = new Date(t.date)
-                  const safeDateStr = isNaN(dateObj.getTime())
-                    ? '-'
-                    : format(
-                        new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000),
-                        'dd/MM/yyyy',
-                      )
-                  const cat = categories.find((c) => c.name === t.category)
+        <Card className="bg-[#161925] border-slate-800 shadow-sm">
+          <CardContent className="p-6 flex justify-between items-start">
+            <div className="space-y-2">
+              <h2 className="text-sm font-medium text-slate-400">Despesas do Mês</h2>
+              <p
+                className="text-2xl font-bold text-red-500 truncate max-w-[180px]"
+                title={`R$ ${(Number(despesas) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+              >
+                R$ {(Number(despesas) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="p-2 rounded-lg bg-red-500/10 flex-shrink-0">
+              <TrendingDown className="w-5 h-5 text-red-500" />
+            </div>
+          </CardContent>
+        </Card>
+      </section>
 
-                  return (
+      <div className="grid gap-6 md:grid-cols-2 items-start">
+        {/* Banks Section */}
+        <section className="flex flex-col gap-4">
+          <Card className="bg-[#161925] border-slate-800 shadow-sm flex flex-col h-full min-h-[350px]">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="text-lg text-white font-semibold flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-indigo-500" /> Contas Bancárias
+                </CardTitle>
+                <CardDescription className="text-slate-400">Suas contas vinculadas</CardDescription>
+              </div>
+              <Button
+                asChild
+                variant="ghost"
+                size="icon"
+                className="text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10"
+              >
+                <Link to="/bancos">
+                  <Plus className="w-5 h-5" />
+                </Link>
+              </Button>
+            </CardHeader>
+            <CardContent className="flex-1 flex flex-col">
+              {isBanksLoading ? (
+                <div className="space-y-3 mt-2">
+                  <Skeleton className="h-16 w-full bg-slate-800 rounded-xl" />
+                  <Skeleton className="h-16 w-full bg-slate-800 rounded-xl" />
+                </div>
+              ) : banks.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center space-y-3 flex-1 border border-dashed border-slate-800 rounded-xl bg-slate-900/50 mt-2">
+                  <div className="w-12 h-12 rounded-full bg-indigo-500/10 flex items-center justify-center">
+                    <Building2 className="w-6 h-6 text-indigo-500" />
+                  </div>
+                  <p className="text-sm font-medium text-slate-300">Nenhum banco cadastrado</p>
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="mt-2 bg-transparent border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10"
+                  >
+                    <Link to="/bancos">Adicionar Banco</Link>
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3 mt-2">
+                  {banks.map((bank) => (
                     <div
-                      key={t.id}
-                      className="flex justify-between items-center py-2 border-b border-slate-800/50 last:border-0"
+                      key={bank.id}
+                      className="flex items-center justify-between p-4 rounded-xl bg-[#0b0e14] border border-slate-800 hover:border-slate-700 transition-colors"
                     >
-                      <div className="flex flex-col gap-1">
-                        <p className="text-sm font-medium text-slate-200">{t.description}</p>
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                          <span>{safeDateStr}</span>
-                          <span>•</span>
-                          <span>{t.origin}</span>
-                          {t.category && (
-                            <>
-                              <span>•</span>
-                              <span
-                                className="px-1.5 py-0.5 rounded-full text-[10px] font-medium"
-                                style={{
-                                  backgroundColor: cat ? `${cat.color}20` : '#334155',
-                                  color: cat ? cat.color : '#cbd5e1',
-                                }}
-                              >
-                                {t.category}
-                              </span>
-                            </>
-                          )}
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
+                          <Building2 className="w-5 h-5 text-indigo-500" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-slate-200">{bank.bank_name}</p>
+                          <p className="text-xs text-slate-500 font-mono">
+                            Ag: {bank.agency} • CC: {bank.account_number}
+                          </p>
                         </div>
                       </div>
-                      <div
-                        className={`flex items-center gap-1 font-semibold ${t.type === 'income' ? 'text-emerald-500' : 'text-slate-300'}`}
-                      >
-                        {t.type === 'income' ? (
-                          <ArrowUp className="w-4 h-4" />
-                        ) : (
-                          <ArrowDown className="w-4 h-4" />
-                        )}
-                        <span>
-                          R${' '}
-                          {(Number(t.amount) || 0).toLocaleString('pt-BR', {
-                            minimumFractionDigits: 2,
-                          })}
-                        </span>
-                      </div>
                     </div>
-                  )
-                })}
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Transactions Section */}
+        <section className="flex flex-col gap-4">
+          <Card className="bg-[#161925] border-slate-800 shadow-sm flex flex-col h-full min-h-[350px]">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="text-lg text-white font-semibold flex items-center gap-2">
+                  <Receipt className="w-5 h-5 text-emerald-500" /> Transações Recentes
+                </CardTitle>
+                <CardDescription className="text-slate-400">
+                  Últimas 5 movimentações do mês
+                </CardDescription>
               </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+              {monthTransactions.length > 0 && (
+                <Link
+                  to="/transactions"
+                  className="text-sm font-medium text-emerald-500 hover:text-emerald-400 px-2"
+                >
+                  Ver todas
+                </Link>
+              )}
+            </CardHeader>
+            <CardContent className="flex-1 flex flex-col">
+              {isTxLoading ? (
+                <div className="space-y-4 mt-2">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="flex justify-between items-center py-2">
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-[200px] bg-slate-800" />
+                        <Skeleton className="h-3 w-[150px] bg-slate-800/50" />
+                      </div>
+                      <Skeleton className="h-5 w-[80px] bg-slate-800" />
+                    </div>
+                  ))}
+                </div>
+              ) : txError ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center space-y-3 flex-1 border border-dashed border-red-500/20 rounded-xl bg-red-500/5 mt-2">
+                  <AlertCircle className="w-8 h-8 text-red-500" />
+                  <p className="text-sm font-medium text-slate-300">{txError}</p>
+                  <Button
+                    onClick={() => {
+                      setIsTxLoading(true)
+                      fetchMonthTransactions()
+                    }}
+                    variant="outline"
+                    className="bg-transparent border-slate-700 hover:bg-slate-800 mt-2"
+                  >
+                    Tentar novamente
+                  </Button>
+                </div>
+              ) : monthTransactions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center space-y-3 flex-1 border border-dashed border-slate-800 rounded-xl bg-slate-900/50 mt-2">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                    <Receipt className="w-6 h-6 text-emerald-500" />
+                  </div>
+                  <p className="text-sm font-medium text-slate-300">Nenhuma transação no mês</p>
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="mt-2 bg-transparent border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                  >
+                    <Link to="/transactions">Adicionar Transação</Link>
+                  </Button>
+                </div>
+              ) : (
+                <div className="animate-fade-in space-y-1 mt-2">
+                  {monthTransactions.slice(0, 5).map((t) => {
+                    const dateObj = new Date(t.date)
+                    const safeDateStr = isNaN(dateObj.getTime())
+                      ? '-'
+                      : format(
+                          new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000),
+                          'dd/MM/yyyy',
+                        )
+
+                    return (
+                      <div
+                        key={t.id}
+                        className="flex justify-between items-center p-3 rounded-lg hover:bg-[#0b0e14] transition-colors border border-transparent hover:border-slate-800"
+                      >
+                        <div className="flex flex-col gap-1 overflow-hidden pr-4">
+                          <p className="text-sm font-medium text-slate-200 truncate">
+                            {t.description}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-slate-500">
+                            <span>{safeDateStr}</span>
+                            {t.category && (
+                              <>
+                                <span>•</span>
+                                <span className="truncate max-w-[100px]">{t.category}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div
+                          className={`flex items-center gap-1 font-semibold whitespace-nowrap ${t.type === 'income' ? 'text-emerald-500' : 'text-slate-300'}`}
+                        >
+                          {t.type === 'income' ? (
+                            <ArrowUp className="w-4 h-4" />
+                          ) : (
+                            <ArrowDown className="w-4 h-4" />
+                          )}
+                          <span>
+                            R${' '}
+                            {(Number(t.amount) || 0).toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                            })}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      </div>
+    </main>
   )
 }

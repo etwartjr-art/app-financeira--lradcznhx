@@ -48,7 +48,7 @@ class ErrorBoundary extends React.Component<
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             <button
-              onClick={() => window.location.replace('/dashboard')}
+              onClick={() => window.location.replace('/')}
               className="px-6 py-2.5 bg-[#0f766e] hover:bg-[#0f766e]/90 transition-colors rounded-lg text-sm font-medium text-white"
             >
               Recarregar Página
@@ -56,7 +56,7 @@ class ErrorBoundary extends React.Component<
             <button
               onClick={() => {
                 localStorage.clear()
-                window.location.replace('/')
+                window.location.replace('/login')
               }}
               className="px-6 py-2.5 bg-transparent border border-red-500/50 text-red-500 hover:bg-red-500/10 transition-colors rounded-lg text-sm font-medium"
             >
@@ -75,7 +75,7 @@ const ProtectedLayout = () => {
 
   if (loading) return <div className="min-h-screen bg-[#0b0e14]" />
 
-  if (!isLoggedIn || !currentUser) return <Navigate to="/" replace />
+  if (!isLoggedIn || !currentUser) return <Navigate to="/login" replace />
   return <Layout />
 }
 
@@ -84,7 +84,7 @@ const AdminLayout = () => {
 
   if (loading) return <div className="min-h-screen bg-[#0b0e14]" />
 
-  if (currentUser?.role !== 'Admin') return <Navigate to="/dashboard" replace />
+  if (currentUser?.role !== 'Admin') return <Navigate to="/" replace />
   return <Outlet />
 }
 
@@ -101,10 +101,11 @@ function AppContent() {
       <Sonner />
       <Router>
         <Routes>
-          <Route path="/" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <Index />} />
+          <Route path="/login" element={isLoggedIn ? <Navigate to="/" replace /> : <Index />} />
 
           <Route element={<ProtectedLayout />}>
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Navigate to="/" replace />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/transactions/:id" element={<TransactionDetail />} />
             <Route path="/cards" element={<Cards />} />

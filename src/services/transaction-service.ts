@@ -77,7 +77,9 @@ export class TransactionService {
       await Promise.all(promises)
     } catch (error) {
       console.error('Erro ao criar transações a partir do extrato:', error)
-      throw error
+      throw new Error(
+        'Falha ao importar as transações. Verifique os dados do arquivo e tente novamente.',
+      )
     }
   }
 }

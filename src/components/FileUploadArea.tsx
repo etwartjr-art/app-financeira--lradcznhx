@@ -3,6 +3,10 @@ import { FileText, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { UniversalParserService, ParsedInvoiceData } from '@/services/universal-parser'
+import { TransactionService } from '@/services/transaction-service'
+import { useAuth } from '@/hooks/useAuth'
+import { useToast } from '@/hooks/useToast'
+import { useNavigate } from '@/hooks/useNavigate'
 
 type State = 'IDLE' | 'LOADING' | 'ERROR' | 'SUCCESS'
 
@@ -20,6 +24,9 @@ export function FileUploadArea({ onSuccess }: FileUploadAreaProps) {
   const [parsedData, setParsedData] = useState<ParsedInvoiceData | null>(null)
   const [currentFile, setCurrentFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { currentUser } = useAuth()
+  const { toast } = useToast()
+  const navigate = useNavigate()
 
   const processFile = async (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase()
@@ -64,11 +71,14 @@ export function FileUploadArea({ onSuccess }: FileUploadAreaProps) {
       navigate('/transactions')
     } catch (err: unknown) {
       setState('ERROR')
-      const msg = err instanceof Error ? err.message : 'Erro ao processar arquivo'
+      const msg =
+        err instanceof Error
+          ? err.message
+          : 'Ocorreu um erro inesperado ao processar o arquivo. Por favor, tente novamente.'
       setErrorMsg(msg)
       toast({
         variant: 'destructive',
-        title: 'Erro',
+        title: 'Erro na Importação',
         description: msg,
       })
     }
